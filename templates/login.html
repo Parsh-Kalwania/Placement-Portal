@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-4">
+
+        <h2 class="text-center mb-4">Login</h2>
+
+        <form id="loginForm">
+            <div class="mb-3">
+                <input type="text" id="username" class="form-control" placeholder="Username" required>
+            </div>
+
+            <div class="mb-3">
+                <input type="password" id="password" class="form-control" placeholder="Password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+                Login
+            </button>
+        </form>
+
+        <div id="error" class="alert alert-danger mt-3 d-none"></div>
+
+        <hr class="my-4">
+
+        <p class="text-center mb-2">Don't have an account?</p>
+
+        <div class="d-flex justify-content-center gap-2">
+            <a href="/signup/student/" class="btn btn-success btn-sm">
+                Sign up as Student
+            </a>
+
+            <a href="/signup/company/" class="btn btn-warning btn-sm">
+                Sign up as Organization
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    const response = await fetch("/api/token/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+        localStorage.setItem("access_token", data.access);
+        localStorage.setItem("refresh_token", data.refresh);
+
+        // Redirect to root. Root will decide student/company.
+        window.location.href = "/";
+    } else {
+        const errorDiv = document.getElementById("error");
+        errorDiv.classList.remove("d-none");
+        errorDiv.innerText = "Invalid username or password";
+    }
+});
+</script>
+
+{% endblock %}

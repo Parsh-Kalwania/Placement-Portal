@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Edit Company Profile</h2>
+
+<form id="profileForm" class="mt-4">
+
+    <div class="mb-3">
+        <label>Company Name</label>
+        <input type="text" id="company_name" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>HR Contact</label>
+        <input type="text" id="hr_contact" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Website</label>
+        <input type="text" id="website" class="form-control">
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Save Changes
+    </button>
+</form>
+
+<div id="message" class="alert mt-3 d-none"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+async function loadProfile() {
+    const response = await fetch("/api/company/profile/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("company_name").value = data.company_name || "";
+    document.getElementById("hr_contact").value = data.hr_contact || "";
+    document.getElementById("website").value = data.website || "";
+}
+
+document.getElementById("profileForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const response = await fetch("/api/company/profile/", {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            company_name: document.getElementById("company_name").value,
+            hr_contact: document.getElementById("hr_contact").value,
+            website: document.getElementById("website").value
+        })
+    });
+
+    const messageDiv = document.getElementById("message");
+
+    if (response.ok) {
+        messageDiv.classList.remove("d-none", "alert-danger");
+        messageDiv.classList.add("alert-success");
+        messageDiv.innerText = "Profile updated successfully";
+
+        setTimeout(() => {
+            window.location.href = "/company/dashboard/";
+        }, 1000);
+    } else {
+        const data = await response.json();
+        messageDiv.classList.remove("d-none", "alert-success");
+        messageDiv.classList.add("alert-danger");
+        messageDiv.innerText = JSON.stringify(data);
+    }
+});
+
+loadProfile();
+</script>
+
+{% endblock %}

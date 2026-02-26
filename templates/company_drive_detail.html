@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2 id="driveTitle"></h2>
+<p>Status: <strong id="driveStatus"></strong></p>
+
+<h4 class="mt-4">Applicants</h4>
+<div id="applications"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+const driveId = window.location.pathname.split("/")[3];
+
+async function loadDrive() {
+    const response = await fetch(`/api/company/drive/${driveId}/`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("driveTitle").innerText = data.job_title;
+    document.getElementById("driveStatus").innerText = data.status;
+
+    const container = document.getElementById("applications");
+
+    if (data.applications.length === 0) {
+        container.innerHTML = "<p>No applicants yet.</p>";
+        return;
+    }
+
+    data.applications.forEach(app => {
+        container.innerHTML += `
+            <div class="card mb-2">
+                <div class="card-body">
+                    <a href="/company/student/${app.student_id}/">
+                    <strong>${app.student_name}</strong>
+                    </a>
+                    <p>Status: ${app.status}</p>
+                </div>
+            </div>
+        `;
+    });
+}
+
+loadDrive();
+</script>
+
+{% endblock %}

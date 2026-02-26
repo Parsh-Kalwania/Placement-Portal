@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Company Dashboard</h2>
+    <div>
+        <a href="/company/edit-profile/" class="btn btn-outline-primary me-2">
+            Edit Profile
+        </a>
+        <a href="/company/add-drive/" class="btn btn-success">
+            Add New Drive
+        </a>
+    </div>
+</div>
+
+<div id="dashboardContent"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+async function loadDashboard() {
+    const response = await fetch("/api/company/dashboard/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+    renderDashboard(data);
+}
+
+function renderDashboard(data) {
+    const container = document.getElementById("dashboardContent");
+
+    container.innerHTML = `
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4>${data.company_name || "Company Profile Incomplete"}</h4>
+                <p>
+                    Status:
+                    <strong class="${data.is_approved ? 'text-success' : 'text-danger'}">
+                        ${data.is_approved ? 'Approved' : 'Pending Approval'}
+                    </strong>
+                </p>
+                <p>Total Drives: <strong>${data.total_drives}</strong></p>
+            </div>
+        </div>
+    `;
+
+    if (data.drives.length === 0) {
+        container.innerHTML += "<p>No drives created yet.</p>";
+        return;
+    }
+
+    data.drives.forEach(drive => {
+        container.innerHTML += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>
+    <a href="/company/drive/${drive.id}/">
+        ${drive.job_title}
+    </a>
+</h5>
+                    <p>Status: <strong>${drive.status}</strong></p>
+                    <p>Applicants: <strong>${drive.applicants}</strong></p>
+                </div>
+            </div>
+        `;
+    });
+}
+
+loadDashboard();
+</script>
+
+{% endblock %}

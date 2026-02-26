@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="text-center">
+    <h4>Checking authentication...</h4>
+</div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+} else {
+    fetch("/api/me/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            localStorage.clear();
+            window.location.href = "/login/";
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data) return;
+
+        if (data.role === "student") {
+            window.location.href = "/student/dashboard/";
+        } else if (data.role === "company") {
+            window.location.href = "/company/dashboard/";
+        } else {
+            // if somehow admin logs in, send to login or keep them here
+            window.location.href = "/login/";
+        }
+    });
+}
+</script>
+
+{% endblock %}

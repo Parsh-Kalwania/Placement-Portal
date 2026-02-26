@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Add New Drive</h2>
+
+<form id="driveForm" class="mt-4">
+
+    <div class="mb-3">
+        <label class="form-label">Job Title</label>
+        <input type="text" id="job_title" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Job Description</label>
+        <textarea id="job_description" class="form-control" rows="4" required></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Eligibility Criteria</label>
+        <input type="text" id="eligibility_criteria" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Application Deadline</label>
+        <input type="date" id="application_deadline" class="form-control" required>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        Create Drive
+    </button>
+
+</form>
+
+<div id="message" class="alert mt-3 d-none"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+document.getElementById("driveForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const response = await fetch("/api/drives/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            job_title: document.getElementById("job_title").value,
+            job_description: document.getElementById("job_description").value,
+            eligibility_criteria: document.getElementById("eligibility_criteria").value,
+            application_deadline: document.getElementById("application_deadline").value,
+            status: "pending"
+        })
+    });
+
+    const data = await response.json();
+    const messageDiv = document.getElementById("message");
+
+    if (response.ok) {
+        messageDiv.classList.remove("d-none", "alert-danger");
+        messageDiv.classList.add("alert-success");
+        messageDiv.innerText = "Drive created successfully! Awaiting admin approval.";
+
+        setTimeout(() => {
+            window.location.href = "/company/dashboard/";
+        }, 1500);
+    } else {
+        messageDiv.classList.remove("d-none", "alert-success");
+        messageDiv.classList.add("alert-danger");
+        messageDiv.innerText = JSON.stringify(data);
+    }
+});
+</script>
+
+{% endblock %}

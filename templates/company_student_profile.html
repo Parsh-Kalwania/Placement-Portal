@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Student Profile</h2>
+
+<div id="studentProfile"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+const studentId = window.location.pathname.split("/")[3];
+
+async function loadProfile() {
+
+    const response = await fetch(`/api/company/student/${studentId}/`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        alert("Failed to load student profile");
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("studentProfile").innerHTML = `
+        <div class="card mt-3">
+            <div class="card-body">
+                <h4>${data.full_name || data.user.username}</h4>
+                <p><strong>Email:</strong> ${data.user.email}</p>
+                <p><strong>Phone:</strong> ${data.phone || "N/A"}</p>
+                <p>
+                    <strong>Resume:</strong> 
+                    ${data.resume ? `<a href="${data.resume}" target="_blank">View Resume</a>` : "Not uploaded"}
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+loadProfile();
+</script>
+
+{% endblock %}

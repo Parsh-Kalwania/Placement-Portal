@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Dashboard</h2>
+
+<div id="dashboardContent" class="mt-4"></div>
+
+<script>
+// 🔒 Protect dashboard
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+// Load role-specific dashboard
+async function loadDashboard() {
+    const endpoints = [
+        "/api/student/dashboard/",
+        "/api/company/dashboard/",
+        "/api/admin/dashboard/"
+    ];
+
+    for (let url of endpoints) {
+        const response = await fetch(url, {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            renderDashboard(data);
+            return;
+        }
+    }
+
+    // If all fail, redirect
+    window.location.href = "/login/";
+}
+
+function renderDashboard(data) {
+    const container = document.getElementById("dashboardContent");
+
+    for (let key in data) {
+        container.innerHTML += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>${key.replaceAll("_", " ")}</h5>
+                    <h3>${data[key]}</h3>
+                </div>
+            </div>
+        `;
+    }
+}
+
+loadDashboard();
+</script>
+
+{% endblock %}

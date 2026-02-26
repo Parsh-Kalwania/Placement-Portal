@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2 id="title"></h2>
+
+<div id="details"></div>
+
+<button id="applyBtn" class="btn btn-primary mt-3">
+    Apply
+</button>
+
+<script>
+const token = localStorage.getItem("access_token");
+const driveId = window.location.pathname.split("/")[3];
+
+async function loadDrive() {
+    const response = await fetch(`/api/student/drive/${driveId}/`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("title").innerText = data.job_title;
+
+    document.getElementById("details").innerHTML = `
+        <p><strong>Company:</strong> ${data.company}</p>
+        <p><strong>Description:</strong> ${data.description}</p>
+        <p><strong>Eligibility:</strong> ${data.eligibility}</p>
+        <p><strong>Deadline:</strong> ${data.deadline}</p>
+    `;
+}
+
+document.getElementById("applyBtn").addEventListener("click", async function() {
+    const response = await fetch("/api/applications/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            drive: driveId
+        })
+    });
+
+    if (response.ok) {
+        alert("Applied successfully!");
+        window.location.href = "/student/dashboard/";
+    } else {
+        alert("Already applied or error occurred.");
+    }
+});
+
+loadDrive();
+</script>
+
+{% endblock %}

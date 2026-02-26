@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center">
+    <h2>Student Dashboard</h2>
+    <a href="/student/edit-profile/" class="btn btn-outline-primary">
+        Edit Profile
+    </a>
+</div>
+
+<h4 class="mt-4">Available Drives</h4>
+<div id="availableDrives"></div>
+
+<h4 class="mt-5">My Applications</h4>
+<div id="myApplications"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+async function loadDashboard() {
+    const response = await fetch("/api/student/dashboard/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+    const errorData = await response.json();
+
+    if (response.status === 403) {
+        document.body.innerHTML = `
+            <div class="container mt-5">
+                <div class="alert alert-danger text-center">
+                    <h4>Account Restricted</h4>
+                    <p>${errorData.detail}</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // For other errors (like token expired)
+    window.location.href = "/login/";
+    return;
+}
+
+    const data = await response.json();
+
+    renderAvailable(data.available_drives);
+    renderApplications(data.applications);
+}
+
+function renderAvailable(drives) {
+    const container = document.getElementById("availableDrives");
+
+    if (drives.length === 0) {
+        container.innerHTML = "<p>No approved drives available.</p>";
+        return;
+    }
+
+    drives.forEach(drive => {
+        container.innerHTML += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>${drive.job_title}</h5>
+                    <p>Company: ${drive.company}</p>
+                    <p>Deadline: ${drive.deadline}</p>
+                    ${
+                        drive.applied
+                        ? '<span class="badge bg-success">Applied</span>'
+                        : `<button class="btn btn-primary btn-sm"
+                             onclick="applyToDrive(${drive.id})">
+                             Apply
+                           </button>`
+                    }
+                </div>
+            </div>
+        `;
+    });
+}
+
+function renderApplications(apps) {
+    const container = document.getElementById("myApplications");
+    container.innerHTML = "";
+
+    if (!apps || apps.length === 0) {
+        container.innerHTML = "<p>You have not applied to any drives yet.</p>";
+        return;
+    }
+
+    apps.forEach(app => {
+        container.innerHTML += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>${app.job_title}</h5>
+                    <p>Company: ${app.company}</p>
+                    <p>Status: <strong>${app.status}</strong></p>
+                </div>
+            </div>
+        `;
+    });
+}
+
+async function applyToDrive(driveId) {
+    const response = await fetch("/api/applications/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            drive: driveId
+        })
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert("Already applied or error occurred.");
+    }
+}
+
+loadDashboard();
+</script>
+
+{% endblock %}

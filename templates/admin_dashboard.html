@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Admin Dashboard</h2>
+
+<div id="adminContent"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+async function loadAdminDashboard() {
+    const response = await fetch("/api/admin/dashboard/", {
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+    const container = document.getElementById("adminContent");
+
+    for (let key in data) {
+        container.innerHTML += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5>${key.replaceAll("_", " ")}</h5>
+                    <h3>${data[key]}</h3>
+                </div>
+            </div>
+        `;
+    }
+}
+
+loadAdminDashboard();
+</script>
+
+{% endblock %}

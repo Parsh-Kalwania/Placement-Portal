@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Edit Student Profile</h2>
+
+<form id="profileForm" class="mt-4">
+
+    <div class="mb-3">
+        <label>Full Name</label>
+        <input type="text" id="full_name" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Phone</label>
+        <input type="text" id="phone" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Resume (URL)</label>
+        <input type="text" id="resume" class="form-control">
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Save Changes
+    </button>
+
+</form>
+
+<div id="message" class="alert mt-3 d-none"></div>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+if (!token) {
+    window.location.href = "/login/";
+}
+
+async function loadProfile() {
+    const response = await fetch("/api/student/profile/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    if (!response.ok) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = await response.json();
+
+    document.getElementById("full_name").value = data.full_name || "";
+    document.getElementById("phone").value = data.phone || "";
+    document.getElementById("resume").value = data.resume || "";
+}
+
+document.getElementById("profileForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const response = await fetch("/api/student/profile/", {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            full_name: document.getElementById("full_name").value,
+            phone: document.getElementById("phone").value,
+            resume: document.getElementById("resume").value
+        })
+    });
+
+    const messageDiv = document.getElementById("message");
+
+    if (response.ok) {
+        messageDiv.classList.remove("d-none", "alert-danger");
+        messageDiv.classList.add("alert-success");
+        messageDiv.innerText = "Profile updated successfully";
+
+        setTimeout(() => {
+            window.location.href = "/student/dashboard/";
+        }, 1000);
+    } else {
+        const data = await response.json();
+        messageDiv.classList.remove("d-none", "alert-success");
+        messageDiv.classList.add("alert-danger");
+        messageDiv.innerText = JSON.stringify(data);
+    }
+});
+
+loadProfile();
+</script>
+
+{% endblock %}

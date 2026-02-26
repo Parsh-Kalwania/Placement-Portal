@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Complete Your Profile</h2>
+
+<form id="profileForm">
+    <div class="mb-3">
+        <input type="text" id="company_name" class="form-control" placeholder="Company Name">
+    </div>
+    <div class="mb-3">
+        <input type="text" id="hr_contact" class="form-control" placeholder="HR Contact">
+    </div>
+    <div class="mb-3">
+        <input type="text" id="website" class="form-control" placeholder="Website">
+    </div>
+    <div class="mb-3">
+        <textarea id="description" class="form-control" placeholder="Description"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Save</button>
+</form>
+
+<script>
+const token = localStorage.getItem("access_token");
+
+document.getElementById("profileForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const response = await fetch("/api/company/profile/", {
+        method: "PATCH",
+        headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            company_name: document.getElementById("company_name").value,
+            hr_contact: document.getElementById("hr_contact").value,
+            website: document.getElementById("website").value,
+            description: document.getElementById("description").value
+        })
+    });
+
+    if (response.ok) {
+        window.location.href = "/company/dashboard/";
+    }
+});
+</script>
+
+{% endblock %}
