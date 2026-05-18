@@ -23,21 +23,21 @@ The following graphic represents the system's architecture layers, core modules,
 
 ```mermaid
 graph TB
-    subgraph Presentation Layer (Client Space)
+    subgraph "Presentation Layer (Client Space)"
         U1["🎓 Student Workspace UI"]
         U2["💼 Recruiter Portal UI"]
         U3["🛠️ Admin Console UI"]
         U4["🔌 3rd-Party Dev Integrations"]
     end
 
-    subgraph Security & Routing (Interface Gateway)
+    subgraph "Security & Routing (Interface Gateway)"
         GW["🌐 Nginx / CORS Filter"]
         AUTH["🛡️ Authentication Manager"]
         JWT["🔑 JWT Session Guard"]
         APK["🔒 Developer API Key Guard"]
     end
 
-    subgraph Application Layer (Core Service Modules)
+    subgraph "Application Layer (Core Service Modules)"
         MOD_USERS["👤 Users & Profiles Manager"]
         MOD_DRIVES["📢 Placement Drives Engine"]
         MOD_APPS["📝 Candidate Pipeline (Applications)"]
@@ -46,7 +46,7 @@ graph TB
         MOD_SUPPORT["🔔 Helpdesk & Notifications"]
     end
 
-    subgraph Persistence Layer (Storage Space)
+    subgraph "Persistence Layer (Storage Space)"
         DB[("🗄️ Relational Database (SQLite / Postgres)")]
     end
 
