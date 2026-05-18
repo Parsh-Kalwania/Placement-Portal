@@ -70,13 +70,12 @@
         </header>
         {% endif %}
 
-        {% if request.path == '/login/' or request.path == '/signup/student/' or request.path == '/signup/company/' %}
-        <main class="page-frame page-main" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 0;">
+        <main class="page-frame page-main" 
+              {% if request.path == '/login/' or request.path == '/signup/student/' or request.path == '/signup/company/' %}
+              style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 0;"
+              {% endif %}>
           {% block content %}{% endblock %}
         </main>
-        {% else %}
-        <main class="page-frame page-main">{% block content %}{% endblock %}</main>
-        {% endif %}
       </div>
     </div>
 
