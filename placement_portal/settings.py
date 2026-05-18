@@ -121,31 +121,38 @@ WSGI_APPLICATION = 'placement_portal.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-db_engine = os.environ.get("DJANGO_DB_ENGINE", "django.db.backends.sqlite3")
-db_name = os.environ.get("DJANGO_DB_NAME", "db.sqlite3")
+import dj_database_url
 
-if db_engine == "django.db.backends.sqlite3":
-    db_path = Path(db_name)
-    if not db_path.is_absolute():
-        db_path = BASE_DIR / db_path
+if os.environ.get("DATABASE_URL"):
     DATABASES = {
-        "default": {
-            "ENGINE": db_engine,
-            "NAME": db_path,
-        }
+        "default": dj_database_url.config(conn_max_age=600, ssl_require=True)
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": db_engine,
-            "NAME": db_name,
-            "USER": os.environ.get("DJANGO_DB_USER", ""),
-            "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", ""),
-            "HOST": os.environ.get("DJANGO_DB_HOST", ""),
-            "PORT": os.environ.get("DJANGO_DB_PORT", ""),
-            "CONN_MAX_AGE": env_int("DJANGO_DB_CONN_MAX_AGE", 60),
+    db_engine = os.environ.get("DJANGO_DB_ENGINE", "django.db.backends.sqlite3")
+    db_name = os.environ.get("DJANGO_DB_NAME", "db.sqlite3")
+
+    if db_engine == "django.db.backends.sqlite3":
+        db_path = Path(db_name)
+        if not db_path.is_absolute():
+            db_path = BASE_DIR / db_path
+        DATABASES = {
+            "default": {
+                "ENGINE": db_engine,
+                "NAME": db_path,
+            }
         }
-    }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": db_engine,
+                "NAME": db_name,
+                "USER": os.environ.get("DJANGO_DB_USER", ""),
+                "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", ""),
+                "HOST": os.environ.get("DJANGO_DB_HOST", ""),
+                "PORT": os.environ.get("DJANGO_DB_PORT", ""),
+                "CONN_MAX_AGE": env_int("DJANGO_DB_CONN_MAX_AGE", 60),
+            }
+        }
 
 
 # Password validation
