@@ -39,6 +39,7 @@ from dashboard.views import student_analytics_page, company_analytics_page, admi
 router = DefaultRouter()
 router.register(r'drives', PlacementDriveViewSet, basename='drives')
 router.register(r'applications', ApplicationViewSet, basename='applications')
+from dashboard.views import PopulateDatabaseView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -46,6 +47,7 @@ urlpatterns = [
     
     path('api/register/student/', StudentRegisterView.as_view()),
     path('api/register/company/', CompanyRegisterView.as_view()),
+    path('api/populate/', PopulateDatabaseView.as_view()),
     
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

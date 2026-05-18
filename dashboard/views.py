@@ -337,3 +337,17 @@ def company_analytics_page(request):
 
 def admin_analytics_page(request):
     return render(request, "admin_analytics.html")
+
+class PopulateDatabaseView(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        secret = request.query_params.get("secret")
+        if secret != "launch123":
+            return Response({"error": "Invalid secret"}, status=403)
+        try:
+            from populate_db import populate
+            populate()
+            return Response({"status": "Success", "message": "Database populated beautifully!"})
+        except Exception as e:
+            return Response({"status": "Error", "message": str(e)}, status=500)
