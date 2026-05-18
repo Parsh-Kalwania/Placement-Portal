@@ -1,4 +1,4 @@
-# 🧪 Phase 7: Testing & Quality Assurance Report
+# Testing & Quality Assurance Report
 
 We have fully designed, implemented, and verified a comprehensive testing suite across all Django apps in the **Placement Portal**! 
 
