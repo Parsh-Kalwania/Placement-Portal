@@ -1,0 +1,130 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="view-transition" content="same-origin" />
+    <title>Placement Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/enhancements.css' %}" />
+    <script>
+      (function() {
+        const theme = localStorage.getItem("app_theme");
+        if (theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="bg-layer" aria-hidden="true">
+      <span class="bg-orb one"></span>
+      <span class="bg-orb two"></span>
+      <span class="bg-grid"></span>
+    </div>
+
+    <div class="app-layout">
+      <!-- Collapsible left sidebar for desktop dashboard -->
+      <aside class="app-sidebar" id="appSidebar" style="display: none;">
+        <div class="sidebar-branding">
+          <span class="brand-mark">PP</span>
+          <span class="brand-title-text">Placement Portal</span>
+        </div>
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+          <svg class="icon-toggle" viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav" style="flex: 1;"></nav>
+        <div class="sidebar-footer" id="sidebarFooter"></div>
+      </aside>
+
+      <div class="app-content-wrapper">
+        <header class="site-header">
+          <div class="page-frame site-header-inner">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="sidebar-trigger-btn" id="sidebarTrigger" onclick="toggleSidebar()" style="display: none;">
+                <svg viewBox="0 0 24 24" class="icon-menu"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+              </button>
+              <a class="brand" href="/">
+                <span class="brand-mark">PP</span>
+                <span>
+                  <span>Placement Portal</span>
+                  <span class="brand-subtitle">Campus hiring workspace</span>
+                </span>
+              </a>
+            </div>
+            
+            <div class="header-right">
+              <div id="navButtons" class="nav-buttons"></div>
+              <!-- Hamburger button for mobile bottom sheet menu -->
+              <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()" style="display: none;">
+                <svg viewBox="0 0 24 24" class="icon-menu"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main class="page-frame page-main">{% block content %}{% endblock %}</main>
+      </div>
+    </div>
+
+    <div
+      id="toastStack"
+      class="toast-stack"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+
+    <script>
+      function toggleSidebar() {
+        const sidebar = document.getElementById("appSidebar");
+        const wrapper = document.querySelector(".app-content-wrapper");
+        if (sidebar && wrapper) {
+          sidebar.classList.toggle("collapsed");
+          wrapper.classList.toggle("collapsed");
+          
+          // Save preference
+          const isCollapsed = sidebar.classList.contains("collapsed");
+          localStorage.setItem("sidebar_collapsed", isCollapsed ? "true" : "false");
+        }
+      }
+
+      function toggleMobileMenu() {
+        const sheet = document.getElementById("mobileBottomSheet");
+        const overlay = document.getElementById("mobileBottomSheetOverlay");
+        if (sheet && overlay) {
+          sheet.classList.toggle("open");
+          overlay.classList.toggle("open");
+        }
+      }
+
+      // Restore collapsed preference
+      document.addEventListener("DOMContentLoaded", () => {
+        const sidebar = document.getElementById("appSidebar");
+        const wrapper = document.querySelector(".app-content-wrapper");
+        if (sidebar && wrapper && localStorage.getItem("sidebar_collapsed") === "true") {
+          sidebar.classList.add("collapsed");
+          wrapper.classList.add("collapsed");
+        }
+      });
+    </script>
+
+    <!-- Mobile Navigation Bottom Sheet -->
+    <div class="mobile-bottom-sheet-overlay" id="mobileBottomSheetOverlay" onclick="toggleMobileMenu()"></div>
+    <div class="mobile-bottom-sheet" id="mobileBottomSheet">
+      <div class="bottom-sheet-header">
+        <h3>Navigation</h3>
+        <button class="bottom-sheet-close" onclick="toggleMobileMenu()">&times;</button>
+      </div>
+      <div class="bottom-sheet-content" id="mobileMenuContent"></div>
+    </div>
+
+    <script src="{% static 'js/app.js' %}"></script>
+    {% block page_scripts %}{% endblock %}
+  </body>
+</html>
+

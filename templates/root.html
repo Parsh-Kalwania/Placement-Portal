@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="center-wrap card-shell" data-animate="fade-up">
+    <div class="kicker">Authenticating Session</div>
+    <h2>Preparing your workspace</h2>
+    <p>We are validating your token and routing you to the right dashboard.</p>
+    <div class="loader" style="justify-content: center; margin-top: 10px;">
+        <span class="loader-dot"></span>
+        <span class="micro">Checking access...</span>
+    </div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(async function routeUser() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    try {
+        const result = await AppUI.request("/api/me/");
+        if (!result.response.ok || !result.data) {
+            AppUI.clearAuth();
+            window.location.href = "/login/";
+            return;
+        }
+
+        const role = result.data.role;
+        AppUI.setRole(role);
+
+        if (role === "student") {
+            window.location.href = "/student/dashboard/";
+            return;
+        }
+
+        if (role === "company") {
+            window.location.href = "/company/dashboard/";
+            return;
+        }
+
+        window.location.href = "/admin-panel/dashboard/";
+    } catch (error) {
+        AppUI.clearAuth();
+        window.location.href = "/login/";
+    }
+})();
+</script>
+{% endblock %}

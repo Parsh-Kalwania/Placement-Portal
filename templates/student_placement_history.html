@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="split-header" data-animate="fade-up">
+    <div>
+        <div class="kicker">Placement History</div>
+        <h1 class="headline">Selected Applications</h1>
+        <p class="subtext">Review completed placement outcomes from your application history.</p>
+    </div>
+    <div class="actions-row">
+        <a href="/student/dashboard/" class="btn btn-ghost">Back to Dashboard</a>
+    </div>
+</section>
+
+<section id="historyStats" class="stats-grid" style="margin-top: 12px;"></section>
+<section id="historyList" class="card-list" style="margin-top: 14px;"></section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function renderHistory(data) {
+    const placements = data.placements || [];
+    document.getElementById("historyStats").innerHTML = `
+        <div class="stat-tile">
+            <div class="stat-label">Total Placements</div>
+            <div class="stat-value">${AppUI.escapeHtml(data.total_placements || 0)}</div>
+        </div>
+    `;
+
+    const list = document.getElementById("historyList");
+    list.innerHTML = "";
+
+    if (!placements.length) {
+        AppUI.renderEmpty(list, "No selected applications yet.");
+        return;
+    }
+
+    placements.forEach(function(item) {
+        list.innerHTML += `
+            <article class="card-shell tight">
+                <div class="card-top">
+                    <div>
+                        <div class="card-title">${AppUI.escapeHtml(item.job_title)}</div>
+                        <div class="card-meta">${AppUI.escapeHtml(item.company_name || "Company")}</div>
+                    </div>
+                    ${AppUI.statusBadge(item.status)}
+                </div>
+                <div class="info-list">
+                    <div class="info-row"><span class="info-key">Application Date</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatDate(item.application_date))}</span></div>
+                </div>
+            </article>
+        `;
+    });
+}
+
+async function loadHistory() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    AppUI.setRole("student");
+    AppUI.renderLoading("historyStats", "Loading history...");
+    AppUI.renderLoading("historyList", "Loading placements...");
+
+    const result = await AppUI.request("/api/student/placement-history/");
+    if (!result.response.ok) {
+        AppUI.renderError("historyList", AppUI.errorText(result.data));
+        return;
+    }
+
+    renderHistory(result.data);
+}
+
+loadHistory();
+</script>
+{% endblock %}

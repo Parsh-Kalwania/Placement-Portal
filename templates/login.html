@@ -1,0 +1,119 @@
+{% extends 'base.html' %} {% block content %}
+<section class="auth-layout" data-animate="fade-up">
+  <div class="card-shell" style="display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7)); border: 1px solid rgba(255,255,255,0.5);">
+    <img src="/static/images/hero.png" alt="Placement Portal Illustration" style="width: 100%; height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(14,165,233,0.2); border: 4px solid white;" />
+    <div class="kicker">Placement Portal</div>
+    <h1 class="headline" style="font-size: 2.4rem; line-height: 1.1; margin-bottom: 16px; background: linear-gradient(135deg, #0ea5e9, #ff7d49); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Secure access for students and hiring teams.</h1>
+    <p class="subtext" style="font-size: 1.1rem;">
+      Sign in to track active drives, review applications, and manage placement
+      decisions in one beautiful workspace.
+    </p>
+  </div>
+
+  <div class="card-shell">
+    <div class="kicker">Sign In</div>
+    <h2>Welcome back</h2>
+    <p>Use your portal credentials to continue.</p>
+
+    <form id="loginForm" class="form-shell">
+      <label class="field-group">
+        <span class="field-label">Username</span>
+        <input
+          type="text"
+          id="username"
+          placeholder="Enter your username"
+          required
+        />
+      </label>
+      <label class="field-group">
+        <span class="field-label">Password</span>
+        <input
+          type="password"
+          id="password"
+          placeholder="Enter your password"
+          required
+        />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Login</button>
+    </form>
+
+    <div id="error" class="feedback error hidden"></div>
+
+    <div class="actions-row" style="margin-top: 20px;">
+      <div style="position: relative; width: 100%;">
+        <button type="button" class="btn btn-ghost btn-block" onclick="document.getElementById('signupMenu').classList.toggle('hidden')" style="border: 1px solid var(--line-strong); padding: 12px; font-size: 1rem;">
+          Don't have an account? Sign Up
+        </button>
+        <div id="signupMenu" class="hidden" style="position: absolute; bottom: 110%; left: 0; width: 100%; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-lg); z-index: 20; display: flex; flex-direction: column; padding: 16px; gap: 12px; transition: all 0.3s ease;">
+          <h4 style="text-align: center; margin: 0; font-size: 0.9rem; color: var(--text-muted);">Choose your role</h4>
+          <a href="/signup/student/" class="btn btn-primary btn-block" style="justify-content: center; padding: 12px;">Sign up as Student</a>
+          <a href="/signup/company/" class="btn btn-secondary btn-block" style="justify-content: center; padding: 12px;">Sign up as Company</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block page_scripts %}
+<script>
+  const loginForm = document.getElementById("loginForm");
+  const errorPanel = document.getElementById("error");
+
+  loginForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    errorPanel.classList.add("hidden");
+
+    const submitButton = loginForm.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Signing in...";
+
+    const payload = {
+      username: document.getElementById("username").value.trim(),
+      password: document.getElementById("password").value,
+    };
+
+    try {
+      const result = await AppUI.request("/api/token/", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify(payload),
+      });
+
+      if (result.response.ok) {
+        AppUI.setTokens(result.data.access, result.data.refresh);
+        localStorage.removeItem("user_role");
+        AppUI.showToast("Login successful", "success");
+        window.setTimeout(function () {
+          window.location.href = "/";
+        }, 280);
+        return;
+      }
+
+      if (result.response.status === 0) {
+        errorPanel.textContent =
+          "Unable to reach server. Please check your connection and try again.";
+      } else {
+        errorPanel.textContent =
+          AppUI.errorText(result.data) || "Invalid username or password.";
+      }
+      errorPanel.classList.remove("hidden");
+    } catch (error) {
+      errorPanel.textContent = "Unable to reach server. Please try again.";
+      errorPanel.classList.remove("hidden");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Login";
+    }
+  });
+
+  // Handle clicking outside the signup menu to close it
+  document.addEventListener('click', function(event) {
+    const menu = document.getElementById('signupMenu');
+    if (menu) {
+      const button = menu.previousElementSibling;
+      if (!menu.contains(event.target) && !button.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    }
+  });
+</script>
+{% endblock %}

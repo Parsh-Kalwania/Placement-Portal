@@ -1,0 +1,438 @@
+{% extends 'base.html' %} {% block content %}
+<section class="split-header" data-animate="fade-up">
+  <div>
+    <div class="kicker">Student Workspace</div>
+    <h1 class="headline">Placement Dashboard</h1>
+    <p class="subtext">
+      Track active opportunities and monitor all submitted applications.
+    </p>
+  </div>
+  <div class="actions-row">
+    <a href="/student/analytics/" class="btn btn-primary">Analytics</a>
+    <a href="/student/placement-history/" class="btn btn-secondary">Placement History</a>
+    <a href="/student/edit-profile/" class="btn btn-ghost">Edit Profile</a>
+  </div>
+</section>
+
+<section
+  id="studentStats"
+  class="stats-grid"
+  style="margin-top: 12px"
+></section>
+
+<section class="grid grid-2" style="margin-top: 14px">
+  <article class="card-shell">
+    <div class="card-top">
+      <div>
+        <h2>Available Drives</h2>
+        <div class="card-meta">Approved drives open for application.</div>
+      </div>
+    </div>
+    <form id="driveFilters" class="form-shell" style="margin-bottom: 12px">
+      <div class="grid grid-2">
+        <div class="field-group">
+          <label class="field-label" for="driveSearch">Search</label>
+          <input
+            id="driveSearch"
+            type="search"
+            placeholder="Role, company, or keyword"
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="deadlineFilter">Deadline</label>
+          <select id="deadlineFilter">
+            <option value="">All open drives</option>
+            <option value="7">Closing in 7 days</option>
+            <option value="30">Closing in 30 days</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions-row">
+        <button type="submit" class="btn btn-primary btn-sm">
+          Apply Filters
+        </button>
+        <button type="button" id="clearFilters" class="btn btn-ghost btn-sm">
+          Clear
+        </button>
+      </div>
+    </form>
+    <div id="availableDrives" class="card-list"></div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h2>My Applications</h2>
+        <div class="card-meta">Track your current progress per company.</div>
+      </div>
+      <div>
+        <select id="applicationSortFilter" class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-soft); font-weight: bold; cursor: pointer;">
+          <option value="default">Default Order</option>
+          <option value="selected">Selected First</option>
+          <option value="shortlisted">Shortlisted First</option>
+          <option value="applied">Applied First</option>
+          <option value="rejected">Rejected First</option>
+        </select>
+      </div>
+    </div>
+    <div id="myApplications" class="card-list"></div>
+  </article>
+</section>
+{% endblock %} {% block page_scripts %}
+<script>
+  let filterTimer = null;
+  let allApplications = [];
+
+  function buildStats(drives, applications) {
+    const container = document.getElementById("studentStats");
+    container.style.opacity = "1";
+    const selectedCount = applications.filter(function (app) {
+      return app.status === "selected";
+    }).length;
+    const shortlistedCount = applications.filter(function (app) {
+      return app.status === "shortlisted";
+    }).length;
+    const appliedCount = applications.filter(function (app) {
+      return app.status === "applied";
+    }).length;
+
+    container.innerHTML = `
+        <div class="stat-tile accent-blue">
+            <div class="stat-header">
+                <div class="stat-label">Open Drives</div>
+                <div class="stat-badge">💼</div>
+            </div>
+            <div class="stat-value">${drives.length}</div>
+            <div class="stat-trend trend-info">↑ 3 new opportunities</div>
+        </div>
+        <div class="stat-tile accent-orange">
+            <div class="stat-header">
+                <div class="stat-label">Applications</div>
+                <div class="stat-badge">📝</div>
+            </div>
+            <div class="stat-value">${applications.length}</div>
+            <div class="stat-trend">across ${new Set(applications.map(a => a.company)).size} companies</div>
+        </div>
+        <div class="stat-tile accent-purple">
+            <div class="stat-header">
+                <div class="stat-label">Shortlisted</div>
+                <div class="stat-badge">✨</div>
+            </div>
+            <div class="stat-value">${shortlistedCount}</div>
+            <div class="stat-trend trend-warning">⚡ interview pending</div>
+        </div>
+        <div class="stat-tile accent-green">
+            <div class="stat-header">
+                <div class="stat-label">Selected</div>
+                <div class="stat-badge">🏆</div>
+            </div>
+            <div class="stat-value">${selectedCount}</div>
+            <div class="stat-trend trend-up">★ Placed!</div>
+        </div>
+    `;
+  }
+
+  function renderAvailable(drives) {
+    const container = document.getElementById("availableDrives");
+    container.style.opacity = "1";
+    container.innerHTML = "";
+
+    if (!drives || !drives.length) {
+      AppUI.renderEmpty(
+        container,
+        "No matching approved drives available right now.",
+      );
+      return;
+    }
+
+    drives.forEach(function (drive, index) {
+      const ctc = AppUI.formatCtc(drive.ctc);
+      const daysRemaining = calculateDaysRemaining(drive.deadline);
+      const deadlineClass =
+        daysRemaining <= 7 ? "status-rejected" : "status-approved";
+
+      container.innerHTML += `
+            <article class="card-shell tight slide-in" style="animation-delay: ${index * 0.05}s;">
+                <div class="card-title"><a href="/student/drive/${drive.id}/">${AppUI.escapeHtml(drive.job_title)}</a></div>
+                <div class="card-meta" style="margin-bottom: 10px;">${AppUI.escapeHtml(drive.company)}</div>
+                <div class="info-list">
+                    <div class="info-row"><span class="info-key">CTC</span><span class="info-value">${AppUI.escapeHtml(ctc)}</span></div>
+                    <div class="info-row"><span class="info-key">Type</span><span class="info-value">${AppUI.escapeHtml(AppUI.labelize(drive.job_type))}</span></div>
+                    <div class="info-row"><span class="info-key">Location</span><span class="info-value">${AppUI.escapeHtml(drive.location || "Not specified")}</span></div>
+                    <div class="info-row"><span class="info-key">Deadline</span><span class="info-value"><span class="badge-status ${deadlineClass}">${AppUI.formatDate(drive.deadline)}</span></span></div>
+                </div>
+                <div class="actions-row" style="margin-top: 12px;">
+                    <a href="/student/drive/${drive.id}/" class="btn btn-ghost btn-sm">Details</a>
+                    <button class="btn btn-primary btn-sm" onclick="confirmApplication(${drive.id}, '${AppUI.escapeHtml(drive.job_title)}', this)">Apply Now</button>
+                </div>
+            </article>
+        `;
+    });
+  }
+
+  function renderApplications(applications) {
+    const container = document.getElementById("myApplications");
+    container.style.opacity = "1";
+    container.innerHTML = "";
+
+    if (!applications || !applications.length) {
+      AppUI.renderEmpty(container, "You have not applied to any drives yet.");
+      return;
+    }
+
+    applications.forEach(function (app, index) {
+      container.innerHTML += `
+            <article class="card-shell tight slide-in" style="animation-delay: ${index * 0.05}s;">
+                <div class="card-top">
+                    <div>
+                        <div class="card-title"><a href="/student/drive/${app.drive_id}/">${AppUI.escapeHtml(app.job_title)}</a></div>
+                        <div class="card-meta">${AppUI.escapeHtml(app.company)}</div>
+                        ${app.current_round ? '<div class="card-meta" style="color: var(--accent); margin-top: 4px;">' + AppUI.escapeHtml(app.current_round) + "</div>" : ""}
+                    </div>
+                    ${AppUI.statusBadge(app.status)}
+                </div>
+                ${app.company_notes ? '<div class="feedback info" style="margin-top: 8px; font-size: 0.85rem; background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); color: var(--text-primary); padding: 8px 12px; border-radius: 8px;"><strong>Notes from company:</strong> ' + AppUI.escapeHtml(app.company_notes) + '</div>' : ""}
+                <div class="actions-row" style="margin-top: 12px;">
+                    <a class="btn btn-ghost btn-sm" href="/student/drive/${app.drive_id}/">View Drive</a>
+                </div>
+            </article>
+        `;
+    });
+  }
+
+  function calculateDaysRemaining(deadline) {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = Math.abs(deadlineDate - today);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  function showConfirmDialog(title, message, onConfirm) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        animation: fadeIn 0.3s ease;
+    `;
+
+    const dialog = document.createElement("div");
+    dialog.style.cssText = `
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        max-width: 400px;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--line);
+    `;
+
+    dialog.innerHTML = `
+        <h3 style="margin: 0 0 12px 0; color: var(--text-primary);">${AppUI.escapeHtml(title)}</h3>
+        <p style="margin: 0 0 20px 0; color: var(--text-muted);">${AppUI.escapeHtml(message)}</p>
+        <div class="actions-row" style="justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-ghost btn-sm" id="cancelBtn">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="confirmBtn">Confirm</button>
+        </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    document.getElementById("cancelBtn").onclick = function () {
+      overlay.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => overlay.remove(), 300);
+    };
+
+    document.getElementById("confirmBtn").onclick = function () {
+      overlay.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => overlay.remove(), 300);
+      onConfirm();
+    };
+
+    overlay.onclick = function (e) {
+      if (e.target === overlay) {
+        overlay.style.animation = "fadeOut 0.3s ease";
+        setTimeout(() => overlay.remove(), 300);
+      }
+    };
+  }
+
+  function confirmApplication(driveId, driveTitle, button) {
+    showConfirmDialog(
+      "Confirm Application",
+      `Apply to "${driveTitle}"?`,
+      function () {
+        applyToDrive(driveId, button);
+      },
+    );
+  }
+
+  async function loadDashboard() {
+    if (!AppUI.requireAuth()) {
+      return;
+    }
+
+    AppUI.setRole("student");
+    
+    const statsContainer = document.getElementById("studentStats");
+    if (statsContainer.innerHTML.trim() === "") {
+        AppUI.renderLoading("studentStats", "Loading dashboard...");
+    } else {
+        statsContainer.style.opacity = "0.5";
+    }
+
+    const drivesContainer = document.getElementById("availableDrives");
+    if (drivesContainer.innerHTML.trim() === "") {
+        AppUI.renderLoading("availableDrives", "Loading drives...");
+    } else {
+        drivesContainer.style.opacity = "0.5";
+    }
+
+    const appsContainer = document.getElementById("myApplications");
+    if (appsContainer.innerHTML.trim() === "") {
+        AppUI.renderLoading("myApplications", "Loading applications...");
+    } else {
+        appsContainer.style.opacity = "0.5";
+    }
+
+    const params = new URLSearchParams();
+    const search = document.getElementById("driveSearch").value.trim();
+    const deadline = document.getElementById("deadlineFilter").value;
+    if (search) {
+      params.set("search", search);
+    }
+    if (deadline) {
+      params.set("deadline_days", deadline);
+    }
+
+    const query = params.toString();
+    const result = await AppUI.request(
+      "/api/student/dashboard/" + (query ? `?${query}` : ""),
+    );
+
+    if (!result.response.ok) {
+      if (result.response.status === 403) {
+        document.querySelector("main").innerHTML = `
+                <section class="card-shell center-wrap">
+                    <div class="kicker">Access Restricted</div>
+                    <h2>Account Restricted</h2>
+                    <p>${AppUI.escapeHtml(AppUI.errorText(result.data))}</p>
+                </section>
+            `;
+        return;
+      }
+      window.location.href = "/login/";
+      return;
+    }
+
+    const drives = result.data.available_drives || [];
+    allApplications = result.data.applications || [];
+    buildStats(drives, allApplications);
+    renderAvailable(drives);
+    applyApplicationsSortFilter();
+  }
+
+  function applyApplicationsSortFilter() {
+    const value = document.getElementById("applicationSortFilter").value;
+    let sorted = [...allApplications];
+    
+    if (value === "selected") {
+      sorted.sort((a, b) => {
+        if (a.status === "selected" && b.status !== "selected") return -1;
+        if (a.status !== "selected" && b.status === "selected") return 1;
+        return 0;
+      });
+    } else if (value === "shortlisted") {
+      sorted.sort((a, b) => {
+        if (a.status === "shortlisted" && b.status !== "shortlisted") return -1;
+        if (a.status !== "shortlisted" && b.status === "shortlisted") return 1;
+        return 0;
+      });
+    } else if (value === "applied") {
+      sorted.sort((a, b) => {
+        if (a.status === "applied" && b.status !== "applied") return -1;
+        if (a.status !== "applied" && b.status === "applied") return 1;
+        return 0;
+      });
+    } else if (value === "rejected") {
+      sorted.sort((a, b) => {
+        if (a.status === "rejected" && b.status !== "rejected") return -1;
+        if (a.status !== "rejected" && b.status === "rejected") return 1;
+        return 0;
+      });
+    }
+    
+    renderApplications(sorted);
+  }
+
+  async function applyToDrive(driveId, button) {
+    if (!AppUI.requireAuth()) {
+      return;
+    }
+
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Applying...";
+
+    const result = await AppUI.request("/api/applications/", {
+      method: "POST",
+      body: JSON.stringify({ drive: driveId }),
+    });
+
+    if (result.response.ok) {
+      AppUI.showToast("Application submitted successfully!", "success");
+      window.setTimeout(function () {
+        window.location.reload();
+      }, 400);
+      return;
+    }
+
+    button.disabled = false;
+    button.textContent = originalLabel;
+    AppUI.showToast(
+      AppUI.errorText(result.data) || "Failed to apply. Please try again.",
+      "error",
+    );
+  }
+
+  document
+    .getElementById("driveFilters")
+    .addEventListener("submit", function (event) {
+      event.preventDefault();
+      loadDashboard();
+    });
+
+  document.getElementById("driveSearch").addEventListener("input", function () {
+    window.clearTimeout(filterTimer);
+    filterTimer = window.setTimeout(loadDashboard, 280);
+  });
+
+  document
+    .getElementById("deadlineFilter")
+    .addEventListener("change", loadDashboard);
+
+  document
+    .getElementById("clearFilters")
+    .addEventListener("click", function () {
+      document.getElementById("driveSearch").value = "";
+      document.getElementById("deadlineFilter").value = "";
+      loadDashboard();
+    });
+
+  document
+    .getElementById("applicationSortFilter")
+    .addEventListener("change", applyApplicationsSortFilter);
+
+  window.applyToDrive = applyToDrive;
+  loadDashboard();
+</script>
+{% endblock %}

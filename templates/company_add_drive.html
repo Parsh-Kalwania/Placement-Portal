@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card-shell" data-animate="fade-up">
+    <div class="kicker">Drive Creation</div>
+    <h1 class="headline">Publish a new placement drive</h1>
+    <p class="subtext">Submitted drives enter pending review and move live after admin approval.</p>
+</section>
+
+<section class="card-shell" style="margin-top: 14px;">
+    <form id="driveForm" class="form-shell">
+        <label class="field-group">
+            <span class="field-label">Job Title</span>
+            <input type="text" id="job_title" placeholder="Software Engineer Intern" required>
+        </label>
+        <label class="field-group">
+            <span class="field-label">Job Description</span>
+            <textarea id="job_description" placeholder="Role overview, responsibilities, and stack..." required></textarea>
+        </label>
+        <label class="field-group">
+            <span class="field-label">Eligibility Criteria</span>
+            <textarea id="eligibility_criteria" placeholder="Branch, CGPA cutoff, graduation year..." required></textarea>
+        </label>
+        <div class="grid grid-2">
+            <label class="field-group">
+                <span class="field-label">Package / CTC (LPA)</span>
+                <input type="number" step="0.01" min="0" id="ctc" placeholder="12.50">
+            </label>
+            <label class="field-group">
+                <span class="field-label">Openings</span>
+                <input type="number" min="1" id="openings" value="1" required>
+            </label>
+        </div>
+        <div class="grid grid-2">
+            <label class="field-group">
+                <span class="field-label">Location</span>
+                <input type="text" id="location" placeholder="Bengaluru / Remote">
+            </label>
+            <label class="field-group">
+                <span class="field-label">Job Type</span>
+                <select id="job_type">
+                    <option value="full_time">Full-time</option>
+                    <option value="internship">Internship</option>
+                    <option value="internship_full_time">Internship + Full-time</option>
+                    <option value="contract">Contract</option>
+                </select>
+            </label>
+        </div>
+        <label class="field-group">
+            <span class="field-label">Required Skills</span>
+            <textarea id="required_skills" placeholder="Python, Django, SQL, React..."></textarea>
+        </label>
+        <label class="field-group">
+            <span class="field-label">Application Deadline</span>
+            <input type="date" id="application_deadline" required>
+        </label>
+        <div class="actions-row">
+            <button type="submit" class="btn btn-secondary">Create Drive</button>
+            <a href="/company/dashboard/" class="btn btn-ghost">Cancel</a>
+        </div>
+    </form>
+
+    <div id="message" class="feedback hidden"></div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const form = document.getElementById("driveForm");
+const message = document.getElementById("message");
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Creating...";
+    message.className = "feedback hidden";
+
+    const payload = {
+        job_title: document.getElementById("job_title").value.trim(),
+        job_description: document.getElementById("job_description").value.trim(),
+        eligibility_criteria: document.getElementById("eligibility_criteria").value.trim(),
+        ctc: document.getElementById("ctc").value === "" ? null : document.getElementById("ctc").value,
+        location: document.getElementById("location").value.trim(),
+        job_type: document.getElementById("job_type").value,
+        required_skills: document.getElementById("required_skills").value.trim(),
+        openings: document.getElementById("openings").value,
+        application_deadline: document.getElementById("application_deadline").value,
+        status: "pending"
+    };
+
+    try {
+        const result = await AppUI.request("/api/drives/", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+
+        if (result.response.ok) {
+            message.className = "feedback success";
+            message.textContent = "Drive created successfully. Awaiting approval.";
+            AppUI.showToast("Drive submitted", "success");
+            window.setTimeout(function() {
+                window.location.href = "/company/dashboard/";
+            }, 700);
+            return;
+        }
+
+        message.className = "feedback error";
+        message.textContent = AppUI.errorText(result.data);
+    } catch (error) {
+        message.className = "feedback error";
+        message.textContent = "Failed to create drive. Please try again.";
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Create Drive";
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends 'base.html' %} {% block content %}
+<section class="auth-layout" data-animate="fade-up" style="view-transition-name: auth-layout;">
+  <div class="card-shell" style="order: 2; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7)); border: 1px solid rgba(255,255,255,0.5);">
+    <img src="/static/images/student.png" alt="Student Sign Up" style="width: 100%; height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(14,165,233,0.2); border: 4px solid white;" />
+    <div class="kicker">Student Onboarding</div>
+    <h1 class="headline" style="font-size: 2.2rem; line-height: 1.1; margin-bottom: 12px; background: linear-gradient(135deg, #0ea5e9, #ff7d49); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Create your placement profile.</h1>
+    <p class="subtext" style="font-size: 1.05rem; margin-bottom: 0;">
+      Register once to access approved drives, submit applications, and track
+      every hiring stage.
+    </p>
+  </div>
+
+  <div class="card-shell" style="order: 1;">
+    <div class="kicker">Student Sign Up</div>
+    <h2>Create account</h2>
+    <p>Use an active email and a strong password.</p>
+
+    <form id="studentSignupForm" class="form-shell">
+      <label class="field-group">
+        <span class="field-label">Username</span>
+        <input
+          type="text"
+          id="username"
+          placeholder="Choose a username"
+          required
+        />
+      </label>
+      <label class="field-group">
+        <span class="field-label">Email</span>
+        <input type="email" id="email" placeholder="you@example.com" required />
+      </label>
+      <label class="field-group">
+        <span class="field-label">Password</span>
+        <input
+          type="password"
+          id="password"
+          placeholder="Create password"
+          required
+        />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">
+        Create Student Account
+      </button>
+    </form>
+
+    <div id="message" class="feedback error hidden"></div>
+    <div class="actions-row" style="margin-top: 14px">
+      <a href="/login/" class="btn btn-ghost btn-sm">Back to Login</a>
+      <a href="/signup/company/" class="btn btn-ghost btn-sm">Company Sign Up</a>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block page_scripts %}
+<script>
+  const form = document.getElementById("studentSignupForm");
+  const message = document.getElementById("message");
+
+  form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    message.classList.add("hidden");
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Creating...";
+
+    const payload = {
+      username: document.getElementById("username").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    };
+
+    try {
+      const result = await AppUI.request("/api/register/student/", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify(payload),
+      });
+
+      if (result.response.ok) {
+        AppUI.showToast("Registration complete. Please log in.", "success");
+        window.setTimeout(function () {
+          window.location.href = "/login/";
+        }, 300);
+        return;
+      }
+
+      if (result.response.status === 0) {
+        message.textContent =
+          "Unable to register right now. Please check your connection and try again.";
+      } else {
+        message.textContent = AppUI.errorText(result.data);
+      }
+      message.classList.remove("hidden");
+    } catch (error) {
+      message.textContent = "Unable to register right now. Please try again.";
+      message.classList.remove("hidden");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Create Student Account";
+    }
+  });
+</script>
+{% endblock %}

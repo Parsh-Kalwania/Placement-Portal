@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="split-header" data-animate="fade-up">
+    <div>
+        <div class="kicker">Drive Overview</div>
+        <h1 id="title" class="headline" style="background: linear-gradient(135deg, #0ea5e9, #ff7d49); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Loading drive...</h1>
+        <div id="meta" class="actions-row" style="margin-top: 8px;"></div>
+    </div>
+    <div class="actions-row">
+        <a href="/student/dashboard/" class="btn btn-ghost" style="border: 1px solid var(--line-strong);">Back to Dashboard</a>
+    </div>
+</section>
+
+<section id="details" class="card-shell" style="margin-top: 24px; padding: 32px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border-radius: 24px; box-shadow: 0 16px 40px rgba(14,165,233,0.1); border: 1px solid rgba(255,255,255,0.6);"></section>
+
+<section id="applicationStatusSection" class="card-shell hidden" style="margin-top: 24px; border: 1px solid var(--line-strong); background: var(--bg-2);">
+    <div class="kicker">Application Status</div>
+    <div id="applicationStatusDetails"></div>
+</section>
+
+<section class="card-shell tight" style="margin-top: 24px; text-align: center; background: transparent; border: none; box-shadow: none;">
+    <button id="applyBtn" class="btn btn-primary btn-block" style="padding: 16px; font-size: 1.1rem; border-radius: 999px; box-shadow: 0 12px 24px rgba(14,165,233,0.3);">Apply to this Drive</button>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const driveId = window.location.pathname.split("/")[3];
+
+async function loadDrive() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    AppUI.setRole("student");
+    const result = await AppUI.request(`/api/student/drive/${driveId}/`);
+
+    if (!result.response.ok || !result.data) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    const data = result.data;
+    document.getElementById("title").textContent = data.job_title || "Drive";
+    document.getElementById("meta").innerHTML = `
+        ${AppUI.statusBadge("approved", "Open")}
+        <span class="micro">Deadline: ${AppUI.escapeHtml(AppUI.formatDate(data.deadline))}</span>
+    `;
+
+    document.getElementById("details").innerHTML = `
+        <div class="info-list" style="display: grid; gap: 16px; font-size: 1.05rem;">
+            <div class="info-row"><span class="info-key">Company</span><span class="info-value">${AppUI.escapeHtml(data.company)}</span></div>
+            <div class="info-row"><span class="info-key">CTC</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatCtc(data.ctc))}</span></div>
+            <div class="info-row"><span class="info-key">Job Type</span><span class="info-value">${AppUI.escapeHtml(AppUI.labelize(data.job_type))}</span></div>
+            <div class="info-row"><span class="info-key">Location</span><span class="info-value">${AppUI.escapeHtml(data.location || "Not specified")}</span></div>
+            <div class="info-row"><span class="info-key">Openings</span><span class="info-value">${AppUI.escapeHtml(data.openings || 1)}</span></div>
+            <div class="info-row"><span class="info-key">Required Skills</span><span class="info-value">${AppUI.escapeHtml(data.required_skills || "Not specified")}</span></div>
+            <div class="info-row"><span class="info-key">Description</span><span class="info-value">${AppUI.escapeHtml(data.description)}</span></div>
+            <div class="info-row"><span class="info-key">Eligibility</span><span class="info-value">${AppUI.escapeHtml(data.eligibility)}</span></div>
+            <div class="info-row"><span class="info-key" style="color: var(--accent-alt);">Deadline</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatDate(data.deadline))}</span></div>
+        </div>
+    `;
+
+    // Check if already applied
+    const applicationsResult = await AppUI.request("/api/student/dashboard/");
+    if (applicationsResult.response.ok && applicationsResult.data.applications) {
+        const application = applicationsResult.data.applications.find(app => app.drive_id == driveId);
+        if (application) {
+            const applyBtn = document.getElementById("applyBtn");
+            applyBtn.disabled = true;
+            applyBtn.textContent = "Applied";
+            applyBtn.style.background = "var(--success)";
+            applyBtn.style.boxShadow = "none";
+            
+            const statusSection = document.getElementById("applicationStatusSection");
+            const statusDetails = document.getElementById("applicationStatusDetails");
+            statusSection.classList.remove("hidden");
+
+            // Build dynamic stepper steps
+            let selectionStages = data.selection_stages || [];
+            if (typeof selectionStages === 'string') {
+                try {
+                    selectionStages = JSON.parse(selectionStages);
+                } catch(e) {
+                    selectionStages = [];
+                }
+            }
+            if (!Array.isArray(selectionStages)) {
+                selectionStages = [];
+            }
+            if (selectionStages.length === 0) {
+                selectionStages = ['Resume Screening', 'Technical Test', 'HR Interview'];
+            }
+
+            const steps = ['Applied', ...selectionStages];
+            const isRejected = application.status === 'rejected';
+            const isSelected = application.status === 'selected';
+
+            if (isSelected) {
+                steps.push('Selected');
+            } else if (isRejected) {
+                steps.push('Rejected');
+            } else {
+                steps.push('Selected');
+            }
+
+            // Find current active step index
+            let activeIndex = 0; // default 'Applied' index
+            if (isSelected) {
+                activeIndex = steps.length - 1;
+            } else if (isRejected) {
+                activeIndex = steps.length - 1;
+            } else {
+                const currentRound = (application.current_round || '').toLowerCase().trim();
+                const matchedIndex = selectionStages.findIndex(s => s.toLowerCase().trim() === currentRound);
+                if (matchedIndex !== -1) {
+                    activeIndex = matchedIndex + 1; // offset by 1 for 'Applied'
+                } else if (application.status === 'shortlisted') {
+                    activeIndex = 1; // assume first selection stage
+                }
+            }
+
+            const progressPercent = (activeIndex / (steps.length - 1)) * 100;
+
+            const stepperHtml = `
+                <div class="stepper-container">
+                    <div class="stepper-line">
+                        <div class="stepper-line-progress" style="width: ${progressPercent}%;"></div>
+                    </div>
+                    ${steps.map((step, idx) => {
+                        let stepClass = '';
+                        let dotContent = idx + 1;
+
+                        if (idx < activeIndex) {
+                            stepClass = 'completed';
+                            dotContent = '✓';
+                        } else if (idx === activeIndex) {
+                            if (isRejected && idx === steps.length - 1) {
+                                stepClass = 'rejected';
+                                dotContent = '✕';
+                            } else if (isSelected && idx === steps.length - 1) {
+                                stepClass = 'completed';
+                                dotContent = '🏆';
+                            } else {
+                                stepClass = 'active';
+                            }
+                        }
+
+                        return `
+                            <div class="stepper-step ${stepClass}">
+                                <div class="stepper-dot">${dotContent}</div>
+                                <div class="stepper-label">${AppUI.escapeHtml(step)}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            statusDetails.innerHTML = `
+                ${stepperHtml}
+                <div class="info-list" style="margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px;">
+                    <div class="info-row"><span class="info-key">Current Status</span><span class="info-value">${AppUI.statusBadge(application.status)}</span></div>
+                    <div class="info-row"><span class="info-key">Current Round</span><span class="info-value">${AppUI.escapeHtml(application.current_round || "Applied")}</span></div>
+                    <div class="info-row"><span class="info-key">Company Notes</span><span class="info-value" style="max-width: 70%; text-align: right;">${AppUI.escapeHtml(application.company_notes || "None")}</span></div>
+                </div>
+            `;
+        }
+    }
+}
+
+document.getElementById("applyBtn").addEventListener("click", async function() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    const button = this;
+    button.disabled = true;
+    button.textContent = "Applying...";
+
+    const result = await AppUI.request("/api/applications/", {
+        method: "POST",
+        body: JSON.stringify({ drive: driveId })
+    });
+
+    if (result.response.ok) {
+        AppUI.showToast("Applied successfully", "success");
+        window.setTimeout(function() {
+            window.location.href = "/student/dashboard/";
+        }, 350);
+        return;
+    }
+
+    button.disabled = false;
+    button.textContent = "Apply to this Drive";
+    AppUI.showToast(AppUI.errorText(result.data), "error");
+});
+
+loadDrive();
+</script>
+{% endblock %}

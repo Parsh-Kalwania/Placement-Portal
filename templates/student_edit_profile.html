@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="split-header" data-animate="fade-up">
+    <div>
+        <div class="kicker">Student Profile</div>
+        <h1 class="headline">Edit your details</h1>
+        <p class="subtext">Keep your profile accurate so recruiters can evaluate your application quickly.</p>
+    </div>
+    <div class="actions-row">
+        <a href="/student/dashboard/" class="btn btn-ghost">Back to Dashboard</a>
+    </div>
+</section>
+
+<section class="grid grid-2" style="margin-top: 14px;">
+    <article class="card-shell">
+        <h2>Profile Snapshot</h2>
+        <div id="profileSnapshot" class="info-list" style="margin-top: 12px;"></div>
+    </article>
+
+    <article class="card-shell" style="margin-top: 20px;">
+        <h2>🔑 Developer API Keys</h2>
+        <p class="subtext" style="font-size: 0.85rem; margin-top: 4px; margin-bottom: 12px;">
+            Expose your placement profile and dashboard status to external systems using your Developer API Key.
+        </p>
+        <form id="keyForm" class="form-shell" style="gap: 8px;">
+            <div style="display: flex; gap: 8px; width: 100%;">
+                <input type="text" id="keyName" placeholder="Key Name (e.g. My Website)" required style="flex: 1;">
+                <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">Generate</button>
+            </div>
+        </form>
+        <div id="keyDisplay" class="feedback hidden" style="margin-top: 12px; font-family: monospace; word-break: break-all; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.2);"></div>
+        <div id="keyList" class="info-list" style="margin-top: 16px;"></div>
+    </article>
+
+    <article class="card-shell">
+        <form id="profileForm" class="form-shell">
+            <label class="field-group">
+                <span class="field-label">Phone</span>
+                <input type="text" id="phone" placeholder="+91 9876543210">
+            </label>
+            <label class="field-group">
+                <span class="field-label">Branch</span>
+                <input type="text" id="branch" placeholder="Computer Science">
+            </label>
+            <label class="field-group">
+                <span class="field-label">Department</span>
+                <input type="text" id="department" placeholder="School of Computing">
+            </label>
+            <div class="grid grid-2">
+                <label class="field-group">
+                    <span class="field-label">Batch Year</span>
+                    <input type="number" min="2000" max="2100" id="batch_year" placeholder="2022">
+                </label>
+                <label class="field-group">
+                    <span class="field-label">Graduation Year</span>
+                    <input type="number" min="2000" max="2100" id="graduation_year" placeholder="2026">
+                </label>
+            </div>
+            <label class="field-group">
+                <span class="field-label">CGPA</span>
+                <input type="number" step="0.01" min="0" max="10" id="cgpa" placeholder="8.52">
+            </label>
+            <label class="field-group">
+                <span class="field-label">Skills</span>
+                <textarea id="skills" placeholder="Python, Java, SQL, Machine Learning..."></textarea>
+            </label>
+            <label class="field-group">
+                <span class="field-label">Resume (PDF/DOC)</span>
+                <input type="file" id="resume" accept=".pdf,.doc,.docx">
+            </label>
+            <div class="grid grid-2">
+                <label class="field-group">
+                    <span class="field-label">LinkedIn URL</span>
+                    <input type="url" id="linkedin_url" placeholder="https://linkedin.com/in/...">
+                </label>
+                <label class="field-group">
+                    <span class="field-label">GitHub URL</span>
+                    <input type="url" id="github_url" placeholder="https://github.com/...">
+                </label>
+            </div>
+            <div class="actions-row">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+
+        <div id="message" class="feedback hidden"></div>
+    </article>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const form = document.getElementById("profileForm");
+const message = document.getElementById("message");
+
+function renderSnapshot(profile) {
+    const user = profile.user || {};
+    const resumeText = profile.resume ? `<a href="${AppUI.escapeHtml(profile.resume)}" target="_blank" rel="noopener">Open Resume</a>` : "Not uploaded";
+    const linkedinText = profile.linkedin_url ? `<a href="${AppUI.escapeHtml(profile.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a>` : "Not added";
+    const githubText = profile.github_url ? `<a href="${AppUI.escapeHtml(profile.github_url)}" target="_blank" rel="noopener">GitHub</a>` : "Not added";
+
+    document.getElementById("profileSnapshot").innerHTML = `
+        <div class="info-row"><span class="info-key">Username</span><span class="info-value">${AppUI.escapeHtml(user.username || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Email</span><span class="info-value">${AppUI.escapeHtml(user.email || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Phone</span><span class="info-value">${AppUI.escapeHtml(profile.phone || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Branch</span><span class="info-value">${AppUI.escapeHtml(profile.branch || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Department</span><span class="info-value">${AppUI.escapeHtml(profile.department || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Batch</span><span class="info-value">${AppUI.escapeHtml(profile.batch_year || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Graduation</span><span class="info-value">${AppUI.escapeHtml(profile.graduation_year || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">CGPA</span><span class="info-value">${AppUI.escapeHtml(profile.cgpa || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Skills</span><span class="info-value">${AppUI.escapeHtml(profile.skills || "N/A")}</span></div>
+        <div class="info-row"><span class="info-key">Resume</span><span class="info-value">${resumeText}</span></div>
+        <div class="info-row"><span class="info-key">LinkedIn</span><span class="info-value">${linkedinText}</span></div>
+        <div class="info-row"><span class="info-key">GitHub</span><span class="info-value">${githubText}</span></div>
+    `;
+}
+
+async function loadProfile() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    AppUI.setRole("student");
+    const result = await AppUI.request("/api/student/profile/");
+    if (!result.response.ok || !result.data) {
+        window.location.href = "/login/";
+        return;
+    }
+
+    document.getElementById("phone").value = result.data.phone || "";
+    document.getElementById("branch").value = result.data.branch || "";
+    document.getElementById("department").value = result.data.department || "";
+    document.getElementById("batch_year").value = result.data.batch_year || "";
+    document.getElementById("graduation_year").value = result.data.graduation_year || "";
+    document.getElementById("cgpa").value = result.data.cgpa || "";
+    document.getElementById("skills").value = result.data.skills || "";
+    // Cannot set value of file input, so we leave it empty
+    document.getElementById("linkedin_url").value = result.data.linkedin_url || "";
+    document.getElementById("github_url").value = result.data.github_url || "";
+    renderSnapshot(result.data);
+}
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving...";
+    message.className = "feedback hidden";
+
+    const formData = new FormData();
+    const phone = document.getElementById("phone").value.trim();
+    const branch = document.getElementById("branch").value.trim();
+    const department = document.getElementById("department").value.trim();
+    const batch_year = document.getElementById("batch_year").value;
+    const graduation_year = document.getElementById("graduation_year").value;
+    const cgpa = document.getElementById("cgpa").value;
+    const skills = document.getElementById("skills").value.trim();
+    const linkedin_url = document.getElementById("linkedin_url").value.trim();
+    const github_url = document.getElementById("github_url").value.trim();
+
+    if (phone) formData.append("phone", phone);
+    if (branch) formData.append("branch", branch);
+    if (department) formData.append("department", department);
+    if (batch_year) formData.append("batch_year", batch_year);
+    if (graduation_year) formData.append("graduation_year", graduation_year);
+    if (cgpa) formData.append("cgpa", cgpa);
+    if (skills) formData.append("skills", skills);
+    if (linkedin_url) formData.append("linkedin_url", linkedin_url);
+    if (github_url) formData.append("github_url", github_url);
+
+    const resumeFile = document.getElementById("resume").files[0];
+    if (resumeFile) {
+        formData.append("resume", resumeFile);
+    }
+
+    try {
+        const result = await AppUI.request("/api/student/profile/", {
+            method: "PATCH",
+            body: formData
+        });
+
+        if (result.response.ok) {
+            message.className = "feedback success";
+            message.textContent = "Profile updated successfully.";
+            AppUI.showToast("Profile updated", "success");
+            await loadProfile();
+            return;
+        }
+
+        message.className = "feedback error";
+        message.textContent = AppUI.errorText(result.data);
+    } catch (error) {
+        message.className = "feedback error";
+        message.textContent = "Unable to save profile right now.";
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Save Changes";
+    }
+});
+
+async function loadAPIKeys() {
+    const result = await AppUI.request("/api/developer/keys/");
+    const container = document.getElementById("keyList");
+    if (!result.response.ok || !result.data) {
+        container.innerHTML = `<p class="subtext">Unable to load API keys.</p>`;
+        return;
+    }
+    
+    if (result.data.length === 0) {
+        container.innerHTML = `<p class="subtext" style="text-align: center; padding: 12px 0;">No active API keys yet.</p>`;
+        return;
+    }
+    
+    container.innerHTML = result.data.map(key => `
+        <div class="info-row" style="align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span class="info-key" style="font-weight: 600; color: var(--text-color);">${AppUI.escapeHtml(key.name)}</span>
+                <span class="subtext" style="font-size: 0.75rem; font-family: monospace;">Preview: ${AppUI.escapeHtml(key.key_preview)}</span>
+            </div>
+            <button class="btn btn-danger" onclick="revokeAPIKey(${key.id}, this)" style="padding: 4px 8px; font-size: 0.75rem;">Revoke</button>
+        </div>
+    `).join("");
+}
+
+document.getElementById("keyForm").addEventListener("submit", async function(event) {
+    event.preventDefault();
+    const nameInput = document.getElementById("keyName");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    
+    const submitBtn = this.querySelector("button[type='submit']");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating...";
+    const result = await AppUI.request("/api/developer/keys/", {
+        method: "POST",
+        body: JSON.stringify({ name })
+    });
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Generate";
+    
+    if (result.response.ok && result.data) {
+        nameInput.value = "";
+        const display = document.getElementById("keyDisplay");
+        display.className = "feedback info";
+        display.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent-blue);">Copy Key String Now (it will not be shown again):</div>
+            <div style="user-select: all; cursor: pointer; color: #a5d6a7; padding: 4px; border-radius: 4px; background: rgba(0,0,0,0.2);" title="Click to select all">${AppUI.escapeHtml(result.data.key)}</div>
+        `;
+        loadAPIKeys();
+    } else {
+        alert("Failed to generate API Key.");
+    }
+});
+
+async function revokeAPIKey(id, button) {
+    if (!confirm("Are you sure you want to revoke this API Key? Any integrations using it will immediately fail.")) {
+        return;
+    }
+    
+    button.disabled = true;
+    button.textContent = "Revoking...";
+    const result = await AppUI.request(`/api/developer/keys/${id}/`, "DELETE");
+    if (result.response.ok) {
+        loadAPIKeys();
+    } else {
+        alert("Failed to revoke API Key.");
+        button.disabled = false;
+        button.textContent = "Revoke";
+    }
+}
+
+loadProfile();
+loadAPIKeys();
+</script>
+{% endblock %}

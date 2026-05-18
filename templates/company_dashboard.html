@@ -1,0 +1,149 @@
+{% extends 'base.html' %} {% block content %}
+<section class="split-header" data-animate="fade-up">
+  <div>
+    <div class="kicker">Company Workspace</div>
+    <h1 class="headline">Hiring Dashboard</h1>
+    <p class="subtext">
+      Manage profile, post drives, and monitor applicant flow from one board.
+    </p>
+  </div>
+  <div class="actions-row">
+    <a href="/company/analytics/" class="btn btn-primary">Analytics</a>
+    <a href="/company/edit-profile/" class="btn btn-ghost">Edit Profile</a>
+    <a href="/company/add-drive/" class="btn btn-secondary">+ Add New Drive</a>
+  </div>
+</section>
+
+<section
+  id="overviewCard"
+  class="card-shell"
+  style="margin-top: 12px"
+></section>
+<section id="drivesList" class="card-list" style="margin-top: 14px"></section>
+{% endblock %} {% block page_scripts %}
+<script>
+  function countByStatus(drives, status) {
+    return drives.filter(function (drive) {
+      return drive.status === status;
+    }).length;
+  }
+
+  function renderOverview(data) {
+    const overviewCard = document.getElementById("overviewCard");
+    const drives = data.drives || [];
+    const companyName = data.company_name || "Profile incomplete";
+    const isApproved = data.is_approved;
+
+    overviewCard.innerHTML = `
+        <div class="card-top">
+            <div>
+                <div class="card-title">${AppUI.escapeHtml(companyName)}</div>
+                <div class="card-meta" style="margin-bottom: 8px;">Approval status and drive lifecycle summary.</div>
+                ${!isApproved ? '<div class="feedback error" style="margin: 0; padding: 6px 10px; font-size: 0.85rem;">Your company is pending approval. Contact admin to proceed.</div>' : ""}
+            </div>
+            ${AppUI.statusBadge(data.is_approved ? "approved" : "pending", data.is_approved ? "Approved" : "Pending")}
+        </div>
+        <div class="stats-grid">
+            <div class="stat-tile accent-blue">
+                <div class="stat-header">
+                    <div class="stat-label">Total Drives</div>
+                    <div class="stat-badge">💼</div>
+                </div>
+                <div class="stat-value">${drives.length}</div>
+                <div class="stat-trend trend-info">active opportunities</div>
+            </div>
+            <div class="stat-tile accent-orange">
+                <div class="stat-header">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-badge">⏳</div>
+                </div>
+                <div class="stat-value">${countByStatus(drives, "pending")}</div>
+                <div class="stat-trend trend-warning">awaiting approval</div>
+            </div>
+            <div class="stat-tile accent-green">
+                <div class="stat-header">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-badge">✓</div>
+                </div>
+                <div class="stat-value">${countByStatus(drives, "approved")}</div>
+                <div class="stat-trend trend-up">actively hiring</div>
+            </div>
+            <div class="stat-tile accent-purple">
+                <div class="stat-header">
+                    <div class="stat-label">Closed</div>
+                    <div class="stat-badge">✕</div>
+                </div>
+                <div class="stat-value">${countByStatus(drives, "closed")}</div>
+                <div class="stat-trend">hiring complete</div>
+            </div>
+        </div>
+        <div class="actions-row">
+            <a href="/company/complete-profile/" class="btn btn-ghost btn-sm">Complete Profile</a>
+            <a href="/company/add-drive/" class="btn btn-primary btn-sm">+ Create Drive</a>
+        </div>
+    `;
+  }
+
+  function renderDrives(data) {
+    const drives = data.drives || [];
+    const list = document.getElementById("drivesList");
+    list.innerHTML = "";
+
+    if (drives.length === 0) {
+      list.innerHTML = `<article class="empty-state">No drives created yet. <a href="/company/add-drive/" style="text-decoration: underline;">Create your first drive</a>.</article>`;
+      return;
+    }
+
+    drives.forEach(function (drive, index) {
+      const statusColor =
+        drive.status === "approved"
+          ? "status-approved"
+          : drive.status === "pending"
+            ? "status-pending"
+            : "status-closed";
+      list.innerHTML += `
+            <article class="card-shell tight slide-in" style="animation-delay: ${index * 0.05}s;">
+                <div class="card-top">
+                    <div style="flex: 1;">
+                        <div class="card-title">
+                            <a href="/company/drive/${drive.id}/">${AppUI.escapeHtml(drive.job_title)}</a>
+                        </div>
+                        <div class="card-meta">${drive.applicants} applicant${drive.applicants !== 1 ? "s" : ""} · ${AppUI.escapeHtml(AppUI.labelize(drive.job_type))}</div>
+                    </div>
+                    <span class="badge-status ${statusColor}">${AppUI.labelize(drive.status)}</span>
+                </div>
+                <div class="info-list">
+                    <div class="info-row"><span class="info-key">CTC</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatCtc(drive.ctc))}</span></div>
+                    <div class="info-row"><span class="info-key">Location</span><span class="info-value">${AppUI.escapeHtml(drive.location || "Not specified")}</span></div>
+                    <div class="info-row"><span class="info-key">Openings</span><span class="info-value">${drive.openings || 1}</span></div>
+                </div>
+                <div class="actions-row" style="margin-top: 12px;">
+                    <a href="/company/drive/${drive.id}/" class="btn btn-primary btn-sm">Manage Drive</a>
+                </div>
+            </article>
+        `;
+    });
+  }
+
+  async function loadDashboard() {
+    if (!AppUI.requireAuth()) {
+      return;
+    }
+
+    AppUI.setRole("company");
+    AppUI.renderLoading("overviewCard", "Loading company data...");
+    AppUI.renderLoading("drivesList", "Loading drives...");
+
+    const result = await AppUI.request("/api/company/dashboard/");
+    if (!result.response.ok || !result.data) {
+      window.location.href = "/login/";
+      return;
+    }
+
+    renderOverview(result.data);
+    renderDrives(result.data);
+  }
+
+  loadDashboard();
+</script>
+{% endblock %}

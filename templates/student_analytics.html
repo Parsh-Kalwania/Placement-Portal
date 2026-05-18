@@ -1,0 +1,170 @@
+{% extends 'base.html' %}{% block content %}
+<section class="split-header" data-animate="fade-up">
+  <div>
+    <div class="kicker">My Analytics</div>
+    <h1 class="headline">Placement Insights</h1>
+    <p class="subtext">Your application performance, profile health, and personalised job recommendations.</p>
+  </div>
+  <div class="actions-row">
+    <a href="/student/dashboard/" class="btn btn-ghost">← Dashboard</a>
+  </div>
+</section>
+
+<!-- STATS ROW -->
+<section id="statsRow" class="stats-grid" style="margin-top:14px;"></section>
+
+<!-- PROFILE + TIMELINE -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Profile Completeness</h2><div class="card-meta">Fields filled in your student profile.</div></div></div>
+    <div id="profileBar" style="margin-top:12px;"></div>
+    <div id="profileBreakdown" class="info-list" style="margin-top:14px;"></div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Application Timeline</h2><div class="card-meta">Applications submitted over the last 6 months.</div></div></div>
+    <div style="height:200px;position:relative;margin-top:12px;">
+      <canvas id="timelineChart"></canvas>
+    </div>
+  </article>
+</section>
+
+<!-- CGPA + SKILL GAP -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>CGPA Comparison</h2><div class="card-meta">Your CGPA vs average placed students.</div></div></div>
+    <div style="height:180px;position:relative;margin-top:12px;">
+      <canvas id="cgpaChart"></canvas>
+    </div>
+    <div id="cgpaNote" style="margin-top:12px; font-size:0.88rem; color:var(--text-muted);"></div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Skill Gap Analysis</h2><div class="card-meta">Skills required by rejected drives you're missing.</div></div></div>
+    <div id="skillGapList" style="margin-top:12px;"></div>
+  </article>
+</section>
+
+<!-- SMART MATCHES + TIPS -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>• Recommended for You</h2><div class="card-meta">Drives matched based on your skills, CGPA, and branch.</div></div></div>
+    <div id="smartMatches" class="card-list" style="margin-top:12px;"></div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top"><div><h2>• Interview Preparation Tips</h2><div class="card-meta">Personalised guidance based on your history.</div></div></div>
+    <div id="tipsList" style="margin-top:12px;"></div>
+  </article>
+</section>
+{% endblock %}{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+async function loadAnalytics() {
+  if (!AppUI.requireAuth()) return;
+  AppUI.setRole("student");
+
+  const [analyticsRes, matchesRes] = await Promise.all([
+    AppUI.request("/api/student/analytics/"),
+    AppUI.request("/api/student/smart-matches/")
+  ]);
+
+  if (!analyticsRes.response.ok) { window.location.href = "/login/"; return; }
+  const d = analyticsRes.data;
+  const matches = matchesRes.response.ok ? matchesRes.data.matches : [];
+
+  // Stats row
+  const stats = [
+    { label: "Total Applications", value: d.total_applications, icon: "•" },
+    { label: "Success Rate", value: d.success_rate + "%", icon: "•" },
+    { label: "Shortlisted", value: d.shortlisted, icon: "•" },
+    { label: "Selected", value: d.selected, icon: "•" },
+    { label: "Rejected", value: d.rejected, icon: "•" },
+    { label: "Profile Complete", value: d.profile_completeness + "%", icon: "•" },
+  ];
+  document.getElementById("statsRow").innerHTML = stats.map(s =>
+    `<div class="stat-tile"><div class="stat-label">${s.icon} ${s.label}</div><div class="stat-value">${AppUI.escapeHtml(String(s.value))}</div></div>`
+  ).join("");
+
+  // Profile completeness bar
+  const pct = d.profile_completeness;
+  const barColor = pct >= 80 ? "var(--success)" : pct >= 50 ? "var(--warning)" : "var(--danger)";
+  document.getElementById("profileBar").innerHTML = `
+    <div style="background:rgba(0,0,0,0.08);border-radius:999px;height:14px;overflow:hidden;">
+      <div style="width:${pct}%;background:${barColor};height:100%;border-radius:999px;transition:width 1s ease;"></div>
+    </div>
+    <div style="margin-top:6px;font-weight:700;color:${barColor};">${pct}% Complete</div>
+  `;
+  const breakdown = d.completeness_breakdown || {};
+  document.getElementById("profileBreakdown").innerHTML = Object.entries(breakdown).map(([field, filled]) =>
+    `<div class="info-row"><span class="info-key">${AppUI.escapeHtml(field)}</span><span class="info-value">${filled ? "• Filled" : "• Missing"}</span></div>`
+  ).join("");
+
+  // Timeline chart
+  const tl = d.application_timeline || [];
+  new Chart(document.getElementById("timelineChart"), {
+    type: "bar",
+    data: {
+      labels: tl.map(t => t.label),
+      datasets: [{ label: "Applications", data: tl.map(t => t.count), backgroundColor: "rgba(14,165,233,0.6)", borderRadius: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // CGPA chart
+  if (d.student_cgpa !== null || d.avg_placed_cgpa !== null) {
+    new Chart(document.getElementById("cgpaChart"), {
+      type: "bar",
+      data: {
+        labels: ["Your CGPA", "Avg. Placed CGPA"],
+        datasets: [{ data: [d.student_cgpa || 0, d.avg_placed_cgpa || 0], backgroundColor: ["rgba(14,165,233,0.7)", "rgba(16,185,129,0.7)"], borderRadius: 8 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 10 } } }
+    });
+    const diff = ((d.student_cgpa || 0) - (d.avg_placed_cgpa || 0)).toFixed(2);
+    const note = diff >= 0 ? `Your CGPA is ${diff} points above the average placed student.` : `Your CGPA is ${Math.abs(diff)} points below the average placed student. Keep working on it!`;
+    document.getElementById("cgpaNote").textContent = note;
+  } else {
+    document.getElementById("cgpaChart").parentElement.innerHTML = `<p style="color:var(--text-muted);padding:20px;">Not enough data yet.</p>`;
+  }
+
+  // Skill gaps
+  const gaps = d.skill_gaps || [];
+  document.getElementById("skillGapList").innerHTML = gaps.length
+    ? gaps.map(g => `<div class="info-row"><span class="info-key">• ${AppUI.escapeHtml(g.skill)}</span><span class="info-value">missed in ${g.missed} drive${g.missed > 1 ? "s" : ""}</span></div>`).join("")
+    : `<p style="color:var(--text-muted);">No skill gaps detected — great work!</p>`;
+
+  // Smart matches
+  const matchContainer = document.getElementById("smartMatches");
+  if (!matches.length) {
+    AppUI.renderEmpty(matchContainer, "No matching drives found. Complete your profile for better results.");
+  } else {
+    matchContainer.innerHTML = matches.map(m => {
+      const scoreColor = m.match_score >= 75 ? "var(--success)" : m.match_score >= 40 ? "var(--warning)" : "var(--danger)";
+      return `<article class="card-shell tight" style="margin-bottom:10px;">
+        <div class="card-top">
+          <div style="flex:1;">
+            <div class="card-title"><a href="/student/drive/${m.drive_id}/">${AppUI.escapeHtml(m.job_title)}</a></div>
+            <div class="card-meta">${AppUI.escapeHtml(m.company_name)} · ${AppUI.escapeHtml(m.location)}</div>
+          </div>
+          <div style="font-weight:800;font-size:1.1rem;color:${scoreColor};">${m.match_score}%</div>
+        </div>
+        ${m.reasons.length ? `<div style="font-size:0.82rem;color:var(--success);margin-top:4px;">✓ ${m.reasons.slice(0,2).map(r=>AppUI.escapeHtml(r)).join(" · ")}</div>` : ""}
+        ${m.warnings.length ? `<div style="font-size:0.82rem;color:var(--warning);margin-top:2px;">⚠ ${AppUI.escapeHtml(m.warnings[0])}</div>` : ""}
+        <div class="actions-row" style="margin-top:8px;">
+          <a href="/student/drive/${m.drive_id}/" class="btn btn-primary btn-sm">View & Apply</a>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  // Tips
+  const tips = d.tips || [];
+  document.getElementById("tipsList").innerHTML = tips.length
+    ? tips.map(t => `<div style="padding:10px 12px;border-left:3px solid var(--accent);background:rgba(14,165,233,0.06);border-radius:0 8px 8px 0;margin-bottom:10px;font-size:0.9rem;">${AppUI.escapeHtml(t)}</div>`).join("")
+    : `<p style="color:var(--text-muted);">Excellent progress — keep applying!</p>`;
+}
+
+loadAnalytics();
+</script>
+{% endblock %}

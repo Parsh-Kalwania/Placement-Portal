@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card-shell" data-animate="fade-up">
+    <div class="kicker">Unified View</div>
+    <h1 class="headline">Role Dashboard Snapshot</h1>
+    <p class="subtext">This fallback page surfaces whichever dashboard endpoint your account can access.</p>
+</section>
+
+<section id="dashboardContent" class="grid grid-3" style="margin-top: 16px;"></section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const endpoints = [
+    "/api/student/dashboard/",
+    "/api/company/dashboard/",
+    "/api/admin/dashboard/"
+];
+
+function normalizeLabel(key) {
+    return String(key || "").replaceAll("_", " ");
+}
+
+function renderCards(data) {
+    const container = document.getElementById("dashboardContent");
+    container.innerHTML = "";
+
+    Object.keys(data).forEach(function(key) {
+        const value = typeof data[key] === "object" ? JSON.stringify(data[key]) : data[key];
+        container.innerHTML += `
+            <article class="card-shell tight">
+                <div class="card-title">${AppUI.escapeHtml(normalizeLabel(key))}</div>
+                <div class="stat-value">${AppUI.escapeHtml(value)}</div>
+            </article>
+        `;
+    });
+}
+
+async function loadDashboard() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    for (const url of endpoints) {
+        const result = await AppUI.request(url);
+        if (result.response.ok && result.data) {
+            renderCards(result.data);
+            return;
+        }
+    }
+
+    AppUI.clearAuth();
+    window.location.href = "/login/";
+}
+
+loadDashboard();
+</script>
+{% endblock %}

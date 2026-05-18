@@ -1,0 +1,103 @@
+{% extends 'base.html' %} {% block content %}
+<section class="auth-layout" data-animate="fade-up" style="view-transition-name: auth-layout;">
+  <div class="card-shell" style="order: 1; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7)); border: 1px solid rgba(255,255,255,0.5);">
+    <img src="/static/images/company.png" alt="Company Sign Up" style="width: 100%; height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(255,125,73,0.2); border: 4px solid white;" />
+    <div class="kicker">Company Onboarding</div>
+    <h1 class="headline" style="font-size: 2.2rem; line-height: 1.1; margin-bottom: 12px; background: linear-gradient(135deg, #ff7d49, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Launch hiring campaigns from one control panel.</h1>
+    <p class="subtext" style="font-size: 1.05rem; margin-bottom: 0;">
+      Register your organization to create drives, track applicants, and manage
+      placement outcomes efficiently.
+    </p>
+  </div>
+
+  <div class="card-shell" style="order: 2;">
+    <div class="kicker">Company Sign Up</div>
+    <h2>Create company account</h2>
+    <p>Use your HR or recruiting email to start.</p>
+
+    <form id="companySignupForm" class="form-shell">
+      <label class="field-group">
+        <span class="field-label">Username</span>
+        <input
+          type="text"
+          id="username"
+          placeholder="Set login username"
+          required
+        />
+      </label>
+      <label class="field-group">
+        <span class="field-label">Email</span>
+        <input type="email" id="email" placeholder="hr@company.com" required />
+      </label>
+      <label class="field-group">
+        <span class="field-label">Password</span>
+        <input
+          type="password"
+          id="password"
+          placeholder="Create password"
+          required
+        />
+      </label>
+      <button type="submit" class="btn btn-secondary btn-block">
+        Create Company Account
+      </button>
+    </form>
+
+    <div id="message" class="feedback error hidden"></div>
+    <div class="actions-row" style="margin-top: 14px">
+      <a href="/login/" class="btn btn-ghost btn-sm">Back to Login</a>
+      <a href="/signup/student/" class="btn btn-ghost btn-sm">Student Sign Up</a>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block page_scripts %}
+<script>
+  const form = document.getElementById("companySignupForm");
+  const message = document.getElementById("message");
+
+  form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    message.classList.add("hidden");
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Creating...";
+
+    const payload = {
+      username: document.getElementById("username").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    };
+
+    try {
+      const result = await AppUI.request("/api/register/company/", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify(payload),
+      });
+
+      if (result.response.ok) {
+        AppUI.showToast("Company account created. Please log in.", "success");
+        window.setTimeout(function () {
+          window.location.href = "/login/";
+        }, 300);
+        return;
+      }
+
+      if (result.response.status === 0) {
+        message.textContent =
+          "Unable to register right now. Please check your connection and try again.";
+      } else {
+        message.textContent = AppUI.errorText(result.data);
+      }
+      message.classList.remove("hidden");
+    } catch (error) {
+      message.textContent = "Unable to register right now. Please try again.";
+      message.classList.remove("hidden");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Create Company Account";
+    }
+  });
+</script>
+{% endblock %}

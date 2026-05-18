@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card-shell" data-animate="fade-up">
+    <div class="kicker">Drive Details</div>
+    <h1 id="driveTitle" class="headline">Loading drive...</h1>
+    <div id="driveMeta" class="actions-row"></div>
+</section>
+
+<section id="applicationStats" class="stats-grid" style="margin-top: 14px;"></section>
+
+<section class="card-shell" style="margin-top: 14px;">
+    <div class="split-header" style="margin-bottom: 12px;">
+        <div>
+            <h2>Applicants</h2>
+            <div class="card-meta">Move candidates through your hiring pipeline.</div>
+        </div>
+        <select id="applicantStatusFilter" style="max-width: 210px;">
+            <option value="">All statuses</option>
+            <option value="applied">Applied</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="selected">Selected</option>
+            <option value="rejected">Rejected</option>
+        </select>
+        <a href="/company/dashboard/" class="btn btn-ghost btn-sm">Back to Dashboard</a>
+    </div>
+    <div id="applications" class="card-list"></div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const driveId = window.location.pathname.split("/")[3];
+let currentDrive = null;
+
+function countApplications(applications, status) {
+    return applications.filter(function(item) { return item.status === status; }).length;
+}
+
+function renderDrive(data) {
+    currentDrive = data;
+    const title = document.getElementById("driveTitle");
+    const meta = document.getElementById("driveMeta");
+    const stats = document.getElementById("applicationStats");
+    const applications = data.applications || [];
+
+    title.textContent = data.job_title || "Drive";
+    meta.innerHTML = `
+        ${AppUI.statusBadge(data.status)}
+        <span class="micro">Total applicants: ${applications.length}</span>
+        <span class="micro">${AppUI.escapeHtml(AppUI.formatCtc(data.ctc))}</span>
+        <span class="micro">${AppUI.escapeHtml(AppUI.labelize(data.job_type))}</span>
+        <span class="micro">${AppUI.escapeHtml(data.location || "Location not specified")}</span>
+        <span class="micro">Openings: ${AppUI.escapeHtml(data.openings || 1)}</span>
+    `;
+
+    stats.innerHTML = `
+        <div class="stat-tile accent-blue">
+            <div class="stat-header">
+                <div class="stat-label">Applied</div>
+                <div class="stat-badge">📝</div>
+            </div>
+            <div class="stat-value">${countApplications(applications, "applied")}</div>
+            <div class="stat-trend trend-info">candidates in pool</div>
+        </div>
+        <div class="stat-tile accent-purple">
+            <div class="stat-header">
+                <div class="stat-label">Shortlisted</div>
+                <div class="stat-badge">✨</div>
+            </div>
+            <div class="stat-value">${countApplications(applications, "shortlisted")}</div>
+            <div class="stat-trend trend-warning">interviews pending</div>
+        </div>
+        <div class="stat-tile accent-green">
+            <div class="stat-header">
+                <div class="stat-label">Selected</div>
+                <div class="stat-badge">🏆</div>
+            </div>
+            <div class="stat-value">${countApplications(applications, "selected")}</div>
+            <div class="stat-trend trend-up">offers extended</div>
+        </div>
+        <div class="stat-tile accent-orange">
+            <div class="stat-header">
+                <div class="stat-label">Rejected</div>
+                <div class="stat-badge">✕</div>
+            </div>
+            <div class="stat-value">${countApplications(applications, "rejected")}</div>
+            <div class="stat-trend">archived candidates</div>
+        </div>
+    `;
+
+    renderApplicants();
+}
+
+function renderApplicants() {
+    const container = document.getElementById("applications");
+    const selectedStatus = document.getElementById("applicantStatusFilter").value;
+    const applications = (currentDrive && currentDrive.applications ? currentDrive.applications : []).filter(function(app) {
+        return !selectedStatus || app.status === selectedStatus;
+    });
+
+    container.innerHTML = "";
+
+    if (!applications.length) {
+        AppUI.renderEmpty(container, selectedStatus ? "No applicants match this status." : "No applicants yet for this drive.");
+        return;
+    }
+
+    applications.forEach(function(app, index) {
+        container.innerHTML += `
+            <article class="card-shell tight">
+                <div class="card-top">
+                    <div>
+                        <div class="card-title">
+                            <a href="/company/student/${app.student_id}/">${AppUI.escapeHtml(app.student_name)}</a>
+                        </div>
+                        <div class="card-meta mono">Applicant #${index + 1}${app.current_round ? " · " + AppUI.escapeHtml(app.current_round) : ""}</div>
+                    </div>
+                    ${AppUI.statusBadge(app.status)}
+                </div>
+                ${app.company_notes ? `<p>${AppUI.escapeHtml(app.company_notes)}</p>` : ""}
+                <div class="actions-row">
+                    <a href="/company/student/${app.student_id}/" class="btn btn-ghost btn-sm">View Student Profile</a>
+                    <select id="status-${app.application_id}" class="btn-sm" style="max-width: 155px;">
+                        <option value="applied" ${app.status === "applied" ? "selected" : ""}>Applied</option>
+                        <option value="shortlisted" ${app.status === "shortlisted" ? "selected" : ""}>Shortlisted</option>
+                        <option value="selected" ${app.status === "selected" ? "selected" : ""}>Selected</option>
+                        <option value="rejected" ${app.status === "rejected" ? "selected" : ""}>Rejected</option>
+                    </select>
+                    <input id="round-${app.application_id}" class="btn-sm" style="max-width: 170px;" type="text" value="${AppUI.escapeHtml(app.current_round || "")}" placeholder="Round">
+                    <input id="notes-${app.application_id}" class="btn-sm" style="max-width: 240px;" type="text" value="${AppUI.escapeHtml(app.company_notes || "")}" placeholder="Notes">
+                    <button class="btn btn-primary btn-sm" onclick="updateApplicationStatus(${app.application_id}, this)">Update Status</button>
+                </div>
+            </article>
+        `;
+    });
+}
+
+async function loadDrive() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    AppUI.setRole("company");
+    AppUI.renderLoading("applications", "Loading applicants...");
+    AppUI.renderLoading("applicationStats", "Loading application stats...");
+    const result = await AppUI.request(`/api/company/drive/${driveId}/`);
+    if (!result.response.ok || !result.data) {
+        AppUI.renderError("applications", AppUI.errorText(result.data));
+        return;
+    }
+
+    renderDrive(result.data);
+}
+
+async function updateApplicationStatus(applicationId, button) {
+    const select = document.getElementById(`status-${applicationId}`);
+    const round = document.getElementById(`round-${applicationId}`);
+    const notes = document.getElementById(`notes-${applicationId}`);
+    const nextStatus = select.value;
+    const originalLabel = button.textContent;
+
+    button.disabled = true;
+    button.textContent = "Updating...";
+
+    const result = await AppUI.request(`/api/applications/${applicationId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+            status: nextStatus,
+            current_round: round.value.trim(),
+            company_notes: notes.value.trim()
+        })
+    });
+
+    if (!result.response.ok) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        AppUI.showToast(AppUI.errorText(result.data), "error");
+        return;
+    }
+
+    AppUI.showToast("Application status updated", "success");
+    await loadDrive();
+}
+
+document.getElementById("applicantStatusFilter").addEventListener("change", renderApplicants);
+window.updateApplicationStatus = updateApplicationStatus;
+loadDrive();
+</script>
+{% endblock %}

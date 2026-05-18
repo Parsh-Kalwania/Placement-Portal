@@ -1,0 +1,677 @@
+{% extends 'base.html' %} {% block content %}
+<section class="card-shell" data-animate="fade-up">
+  <div class="card-top">
+    <div>
+      <div class="kicker">Admin Analytics</div>
+      <h1 class="headline">Platform Metrics</h1>
+      <p class="subtext">
+        Monitor students, organizations, drives, and applications from a single
+        operational view.
+      </p>
+    </div>
+    <div class="actions-row">
+      <a href="/admin-panel/analytics/" class="btn btn-primary">Deep Analytics</a>
+    </div>
+  </div>
+</section>
+
+<section
+  id="adminContent"
+  class="stats-grid"
+  style="margin-top: 16px"
+></section>
+
+<section class="card-shell" style="margin-top: 24px;">
+  <div class="card-top">
+    <div>
+      <h2>Platform Overview</h2>
+      <div class="card-meta">Visual breakdown of system metrics.</div>
+    </div>
+  </div>
+  <div style="height: 300px; width: 100%;">
+      <canvas id="adminChart"></canvas>
+  </div>
+</section>
+
+<section class="grid grid-2" style="margin-top: 16px">
+  <article class="card-shell">
+    <div class="card-top">
+      <div>
+        <h2>Pending Companies</h2>
+        <div class="card-meta">
+          Approve verified recruiters for drive creation.
+        </div>
+      </div>
+    </div>
+    <div id="pendingCompanies" class="card-list"></div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top">
+      <div>
+        <h2>Pending Drives</h2>
+        <div class="card-meta">
+          Review submitted opportunities before publishing.
+        </div>
+      </div>
+    </div>
+    <div id="pendingDrives" class="card-list"></div>
+  </article>
+
+  <article class="card-shell" style="grid-column: 1 / -1; margin-top: 16px;">
+    <div class="card-top">
+      <div>
+        <h2>Support Queries</h2>
+        <div class="card-meta">
+          User issues needing attention.
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-ghost btn-sm" id="btnFilterUnresolved" onclick="loadSupportQueries('unresolved')" style="font-weight:bold;">Unresolved</button>
+        <button class="btn btn-ghost btn-sm" id="btnFilterResolved" onclick="loadSupportQueries('resolved')">Resolved</button>
+      </div>
+    </div>
+    <div id="supportQueries" class="card-list"></div>
+  </article>
+</section>
+{% endblock %} {% block page_scripts %}
+<script>
+  function titleFromKey(key) {
+    return String(key)
+      .replaceAll("_", " ")
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  function getStatIcon(key) {
+    const icons = {
+      total_students: "👥",
+      total_companies: "🏢",
+      approved_companies: "✅",
+      total_drives: "📋",
+      approved_drives: "✅",
+      total_applications: "📝",
+    };
+    return icons[key] || "📊";
+  }
+
+  function renderStats(data) {
+    const container = document.getElementById("adminContent");
+    container.innerHTML = "";
+
+    const keyAccents = {
+      total_students: "accent-blue",
+      total_companies: "accent-orange",
+      approved_companies: "accent-green",
+      total_drives: "accent-purple",
+      approved_drives: "accent-green",
+      total_applications: "accent-orange",
+    };
+
+    const keyTrends = {
+      total_students: "active candidates",
+      total_companies: "recruiters registered",
+      approved_companies: "verified recruiters",
+      total_drives: "placement events",
+      approved_drives: "active job postings",
+      total_applications: "total resumes sent",
+    };
+
+    const keyTypes = {
+      total_students: "students",
+      total_companies: "companies",
+      approved_companies: "companies",
+      total_drives: "drives",
+      approved_drives: "drives",
+      total_applications: "applications",
+    };
+
+    let index = 0;
+    Object.keys(data).forEach(function (key) {
+      const accent = keyAccents[key] || "accent-blue";
+      const trend = keyTrends[key] || "system telemetry";
+      const icon = getStatIcon(key);
+      const type = keyTypes[key];
+      const title = titleFromKey(key);
+      container.innerHTML += `
+            <article class="stat-tile ${accent} slide-in" style="animation-delay: ${index * 0.05}s; cursor: pointer;" onclick="showAdminDetailsModal('${type}', '${AppUI.escapeHtml(title)}')">
+                <div class="stat-header">
+                    <div class="stat-label">${AppUI.escapeHtml(title)}</div>
+                    <div class="stat-badge">${icon}</div>
+                </div>
+                <div class="stat-value">${AppUI.escapeHtml(data[key])}</div>
+                <div class="stat-trend">${trend} (click to view)</div>
+            </article>
+        `;
+      index++;
+    });
+  }
+
+  function renderCompanies(companies) {
+    const container = document.getElementById("pendingCompanies");
+    container.innerHTML = "";
+
+    if (!companies.length) {
+      AppUI.renderEmpty(container, "No companies waiting for approval.");
+      return;
+    }
+
+    companies.forEach(function (company, index) {
+      const name = company.company_name || company.username;
+      container.innerHTML += `
+            <article class="card-shell tight slide-in" id="company-${company.id}" style="animation-delay: ${index * 0.05}s;">
+                <div class="card-top">
+                    <div style="flex: 1;">
+                        <div class="card-title">${AppUI.escapeHtml(name)}</div>
+                        <div class="card-meta">${AppUI.escapeHtml(company.email || "No email")}</div>
+                    </div>
+                    ${AppUI.statusBadge("pending", "Pending")}
+                </div>
+                <div class="info-list">
+                    <div class="info-row"><span class="info-key">HR Contact</span><span class="info-value">${AppUI.escapeHtml(company.hr_contact || "Not provided")}</span></div>
+                    <div class="info-row"><span class="info-key">Website</span><span class="info-value">${company.website ? `<a href="${AppUI.escapeHtml(company.website)}" target="_blank" rel="noopener">🔗 Visit</a>` : "Not provided"}</span></div>
+                </div>
+                <div class="actions-row" style="margin-top: 12px;">
+                    <button class="btn btn-primary btn-sm" onclick="confirmApproveCompany(${company.id}, '${AppUI.escapeHtml(name)}', this)">✓ Approve</button>
+                </div>
+            </article>
+        `;
+    });
+  }
+
+  function renderDrives(drives) {
+    const container = document.getElementById("pendingDrives");
+    container.innerHTML = "";
+
+    if (!drives.length) {
+      AppUI.renderEmpty(container, "No drives waiting for approval.");
+      return;
+    }
+
+    drives.forEach(function (drive, index) {
+      const companyName =
+        drive.company_name ||
+        drive.company_username ||
+        `Company #${drive.company}`;
+      container.innerHTML += `
+            <article class="card-shell tight slide-in" id="drive-${drive.id}" style="animation-delay: ${index * 0.05}s;">
+                <div class="card-top">
+                    <div style="flex: 1;">
+                        <div class="card-title">${AppUI.escapeHtml(drive.job_title)}</div>
+                        <div class="card-meta">${AppUI.escapeHtml(companyName)}</div>
+                    </div>
+                    ${AppUI.statusBadge("pending", "Pending")}
+                </div>
+                <div class="info-list">
+                    <div class="info-row"><span class="info-key">CTC</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatCtc(drive.ctc))}</span></div>
+                    <div class="info-row"><span class="info-key">Type</span><span class="info-value">${AppUI.escapeHtml(AppUI.labelize(drive.job_type))}</span></div>
+                    <div class="info-row"><span class="info-key">Location</span><span class="info-value">${AppUI.escapeHtml(drive.location || "Not specified")}</span></div>
+                    <div class="info-row"><span class="info-key">Openings</span><span class="info-value">${drive.openings || 1}</span></div>
+                    <div class="info-row"><span class="info-key">Deadline</span><span class="info-value">${AppUI.escapeHtml(AppUI.formatDate(drive.application_deadline))}</span></div>
+                </div>
+                <div class="actions-row" style="margin-top: 12px;">
+                    <button class="btn btn-primary btn-sm" onclick="confirmApproveDrive(${drive.id}, '${AppUI.escapeHtml(drive.job_title)}', this)">✓ Approve</button>
+                </div>
+            </article>
+        `;
+    });
+  }
+
+  function showConfirmDialog(title, message, onConfirm) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        animation: fadeIn 0.3s ease;
+    `;
+
+    const dialog = document.createElement("div");
+    dialog.style.cssText = `
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        max-width: 420px;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--line);
+    `;
+
+    dialog.innerHTML = `
+        <h3 style="margin: 0 0 12px 0; color: var(--text-primary);">${AppUI.escapeHtml(title)}</h3>
+        <p style="margin: 0 0 20px 0; color: var(--text-muted); line-height: 1.5;">${AppUI.escapeHtml(message)}</p>
+        <div class="actions-row" style="justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-ghost btn-sm" id="cancelBtn">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="confirmBtn">Approve</button>
+        </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    document.getElementById("cancelBtn").onclick = function () {
+      overlay.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => overlay.remove(), 300);
+    };
+
+    document.getElementById("confirmBtn").onclick = function () {
+      overlay.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => overlay.remove(), 300);
+      onConfirm();
+    };
+
+    overlay.onclick = function (e) {
+      if (e.target === overlay) {
+        overlay.style.animation = "fadeOut 0.3s ease";
+        setTimeout(() => overlay.remove(), 300);
+      }
+    };
+  }
+
+  function confirmApproveCompany(companyId, companyName, button) {
+    showConfirmDialog(
+      "Approve Company",
+      `Approve "${companyName}" to create and publish drives?`,
+      function () {
+        approveCompany(companyId, button);
+      },
+    );
+  }
+
+  function confirmApproveDrive(driveId, driveTitle, button) {
+    showConfirmDialog(
+      "Approve Drive",
+      `Publish "${driveTitle}" for students to apply?`,
+      function () {
+        approveDrive(driveId, button);
+      },
+    );
+  }
+
+  function renderChart(data) {
+    const ctx = document.getElementById('adminChart').getContext('2d');
+    
+    // Destroy existing chart if any (to prevent overlap when refreshing)
+    if (window.adminChartInstance) {
+        window.adminChartInstance.destroy();
+    }
+    
+    window.adminChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Total Students', 'Total Companies', 'Total Drives', 'Total Applications'],
+            datasets: [{
+                label: 'Count',
+                data: [data.total_students, data.total_companies, data.total_drives, data.total_applications],
+                backgroundColor: [
+                    'rgba(14, 165, 233, 0.6)',
+                    'rgba(255, 125, 73, 0.6)',
+                    'rgba(17, 185, 129, 0.6)',
+                    'rgba(186, 104, 200, 0.6)'
+                ],
+                borderColor: [
+                    'rgba(14, 165, 233, 1)',
+                    'rgba(255, 125, 73, 1)',
+                    'rgba(17, 185, 129, 1)',
+                    'rgba(186, 104, 200, 1)'
+                ],
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+  }
+
+  function renderSupport(queries, statusFilter) {
+      const container = document.getElementById("supportQueries");
+      container.innerHTML = "";
+      if (!queries.length) {
+          AppUI.renderEmpty(container, `No ${statusFilter} support queries.`);
+          return;
+      }
+      queries.forEach(function (q, index) {
+          const isResolved = q.is_resolved;
+          container.innerHTML += `
+              <article class="card-shell tight slide-in" id="query-${q.id}" style="animation-delay: ${index * 0.05}s;">
+                  <div class="card-top">
+                      <div style="flex: 1;">
+                          <div class="card-title">${AppUI.escapeHtml(q.subject)}</div>
+                          <div class="card-meta">${AppUI.escapeHtml(q.user)} (${AppUI.escapeHtml(q.email)})</div>
+                      </div>
+                      ${AppUI.statusBadge(isResolved ? "resolved" : "pending", isResolved ? "Resolved" : "Unresolved")}
+                  </div>
+                  <div class="info-list" style="margin-top: 8px;">
+                      <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0; line-height: 1.5;">${AppUI.escapeHtml(q.message)}</p>
+                  </div>
+                  ${isResolved && q.admin_reply ? `
+                      <div style="background:rgba(17,185,129,0.1);padding:10px;border-radius:6px;font-size:0.9rem;margin-top:12px;">
+                          <strong>Your Reply:</strong> ${AppUI.escapeHtml(q.admin_reply)}
+                      </div>
+                  ` : ''}
+                  ${!isResolved ? `
+                  <div class="actions-row" style="margin-top: 12px; flex-direction: column; align-items: stretch; gap: 8px;">
+                      <textarea id="reply-${q.id}" class="form-control" rows="2" placeholder="Write a reply (optional)..."></textarea>
+                      <button class="btn btn-primary btn-sm" style="align-self: flex-end;" onclick="resolveSupport(${q.id}, this)">✓ Mark Resolved</button>
+                  </div>
+                  ` : ''}
+              </article>
+          `;
+      });
+  }
+
+  async function resolveSupport(id, button) {
+      const replyBox = document.getElementById(`reply-${id}`);
+      const reply = replyBox ? replyBox.value.trim() : "";
+      
+      button.disabled = true;
+      button.textContent = "Resolving...";
+      const result = await AppUI.request(`/api/admin/support/${id}/resolve/`, { 
+          method: "PATCH",
+          body: JSON.stringify({ reply: reply })
+      });
+      if (result.response.ok) {
+          const card = document.getElementById(`query-${id}`);
+          if (card) {
+              card.style.animation = "fadeOut 0.3s ease";
+              setTimeout(() => card.remove(), 300);
+          }
+          AppUI.showToast("Query marked as resolved", "success");
+      } else {
+          button.disabled = false;
+          button.textContent = "✓ Mark Resolved";
+          AppUI.showToast("Failed to resolve query", "error");
+      }
+  }
+
+  async function loadSupportQueries(status) {
+      if (status === 'resolved') {
+          document.getElementById('btnFilterResolved').style.fontWeight = 'bold';
+          document.getElementById('btnFilterUnresolved').style.fontWeight = 'normal';
+      } else {
+          document.getElementById('btnFilterUnresolved').style.fontWeight = 'bold';
+          document.getElementById('btnFilterResolved').style.fontWeight = 'normal';
+      }
+      
+      AppUI.renderLoading("supportQueries", "Loading queries...");
+      const supportResult = await AppUI.request(`/api/admin/support/?status=${status}`);
+      if (supportResult.response.ok) {
+          renderSupport(supportResult.data, status);
+      } else {
+          AppUI.renderError(
+              "supportQueries",
+              AppUI.errorText(supportResult.data) || "Failed to load support queries"
+          );
+      }
+  }
+
+  async function loadAdminDashboard() {
+    if (!AppUI.requireAuth()) {
+      return;
+    }
+
+    AppUI.setRole("admin");
+    AppUI.renderLoading("adminContent", "Loading metrics...");
+    AppUI.renderLoading("pendingCompanies", "Loading approvals...");
+    AppUI.renderLoading("pendingDrives", "Loading drives...");
+
+    const result = await AppUI.request("/api/admin/dashboard/");
+    if (!result.response.ok || !result.data) {
+      AppUI.clearAuth();
+      window.location.href = "/login/";
+      return;
+    }
+
+    renderStats(result.data);
+    renderChart(result.data);
+
+    const companiesResult = await AppUI.request(
+      "/api/admin/companies/pending/",
+    );
+    if (companiesResult.response.ok) {
+      renderCompanies(AppUI.listResults(companiesResult.data));
+    } else {
+      AppUI.renderError(
+        "pendingCompanies",
+        AppUI.errorText(companiesResult.data) || "Failed to load companies",
+      );
+    }
+
+    const drivesResult = await AppUI.request("/api/admin/drives/pending/");
+    if (drivesResult.response.ok) {
+      renderDrives(AppUI.listResults(drivesResult.data));
+    } else {
+      AppUI.renderError(
+        "pendingDrives",
+        AppUI.errorText(drivesResult.data) || "Failed to load drives",
+      );
+    }
+    
+    loadSupportQueries('unresolved');
+  }
+
+  async function approveCompany(companyId, button) {
+    button.disabled = true;
+    button.textContent = "Approving...";
+
+    const result = await AppUI.request(
+      `/api/admin/companies/${companyId}/approve/`,
+      { method: "PATCH" },
+    );
+    if (!result.response.ok) {
+      button.disabled = false;
+      button.textContent = "✓ Approve";
+      AppUI.showToast(
+        AppUI.errorText(result.data) || "Failed to approve company",
+        "error",
+      );
+      return;
+    }
+
+    const cardElement = document.getElementById(`company-${companyId}`);
+    if (cardElement) {
+      cardElement.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => cardElement.remove(), 300);
+    }
+    AppUI.showToast("Company approved successfully", "success");
+    setTimeout(() => loadAdminDashboard(), 500);
+  }
+
+  async function approveDrive(driveId, button) {
+    button.disabled = true;
+    button.textContent = "Approving...";
+
+    const result = await AppUI.request(
+      `/api/admin/drives/${driveId}/approve/`,
+      { method: "PATCH" },
+    );
+    if (!result.response.ok) {
+      button.disabled = false;
+      button.textContent = "✓ Approve";
+      AppUI.showToast(
+        AppUI.errorText(result.data) || "Failed to approve drive",
+        "error",
+      );
+      return;
+    }
+
+    const cardElement = document.getElementById(`drive-${driveId}`);
+    if (cardElement) {
+      cardElement.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => cardElement.remove(), 300);
+    }
+    AppUI.showToast("Drive approved successfully", "success");
+    setTimeout(() => loadAdminDashboard(), 500);
+  }
+
+  async function showAdminDetailsModal(type, title) {
+    let modal = document.getElementById("adminListModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "adminListModal";
+      modal.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(9, 15, 29, 0.75);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+      `;
+      modal.innerHTML = `
+        <div class="card-shell" style="
+          width: 90%;
+          max-width: 800px;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: var(--shadow-lg);
+          padding: 28px;
+          border: 1px solid var(--line-strong);
+          background: var(--surface-strong);
+          border-radius: var(--radius-lg);
+          position: relative;
+          transform: scale(0.95);
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        " id="adminModalBody">
+          <div class="card-top" style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2 id="adminModalTitle" style="margin:0;">List Detail</h2>
+              <div class="card-meta" id="adminModalSub">Browse platform item mappings.</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeAdminModal()">✕ Close</button>
+          </div>
+          <div id="adminModalContent" class="card-list" style="margin-top: 16px;"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      modal.onclick = function(e) {
+        if (e.target === modal) closeAdminModal();
+      };
+    }
+
+    modal.style.opacity = "1";
+    modal.style.pointerEvents = "all";
+    document.getElementById("adminModalBody").style.transform = "scale(1)";
+    
+    document.getElementById("adminModalTitle").textContent = title;
+    document.getElementById("adminModalSub").textContent = `Platform intelligence directory for ${title.toLowerCase()}.`;
+    AppUI.renderLoading("adminModalContent", `Fetching ${title.toLowerCase()} list...`);
+    
+    const res = await AppUI.request(`/api/admin/list-data/?type=${type}`);
+    if (!res.response.ok) {
+      AppUI.renderError("adminModalContent", "Failed to retrieve directory listings.");
+      return;
+    }
+    
+    const list = res.data;
+    const container = document.getElementById("adminModalContent");
+    container.innerHTML = "";
+    
+    if (!list || !list.length) {
+      AppUI.renderEmpty(container, `No items registered for ${title.toLowerCase()}.`);
+      return;
+    }
+    
+    let html = "";
+    if (type === "students") {
+      html = `<div style="display:grid; gap:12px;">` + list.map(s => `
+        <div style="padding:14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:1.05rem; color:var(--text-primary);">🎓 ${AppUI.escapeHtml(s.username)}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">📧 ${AppUI.escapeHtml(s.email)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:600; font-size:0.85rem; color:var(--accent);">Branch: ${AppUI.escapeHtml(s.branch)}</div>
+            <div style="font-size:0.85rem; font-weight:700; color:var(--success); margin-top:4px;">CGPA: ${AppUI.escapeHtml(String(s.cgpa))}</div>
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    } 
+    else if (type === "companies") {
+      html = `<div style="display:grid; gap:12px;">` + list.map(c => `
+        <div style="padding:14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:1.05rem; color:var(--text-primary);">🏢 ${AppUI.escapeHtml(c.company_name)}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">📧 ${AppUI.escapeHtml(c.email)} | HR: ${AppUI.escapeHtml(c.hr_contact)}</div>
+          </div>
+          <div>
+            ${c.is_approved ? AppUI.statusBadge("approved", "Verified") : AppUI.statusBadge("pending", "Unapproved")}
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    }
+    else if (type === "drives") {
+      html = `<div style="display:grid; gap:12px;">` + list.map(d => `
+        <div style="padding:14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:1.05rem; color:var(--text-primary);">💼 ${AppUI.escapeHtml(d.job_title)}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">🏢 Recruiter: ${AppUI.escapeHtml(d.company_name)} | Location: ${AppUI.escapeHtml(d.location)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700; color:var(--success);">${AppUI.escapeHtml(AppUI.formatCtc(d.ctc))}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Type: ${AppUI.escapeHtml(AppUI.labelize(d.job_type))} | Status: <strong style="color:var(--accent);">${AppUI.escapeHtml(d.status)}</strong></div>
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    }
+    else if (type === "applications") {
+      html = `<div style="display:grid; gap:12px;">` + list.map(a => `
+        <div style="padding:14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface-soft); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:1.05rem; color:var(--text-primary);">📝 ${AppUI.escapeHtml(a.student_name)}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Applied for: ${AppUI.escapeHtml(a.job_title)} at ${AppUI.escapeHtml(a.company_name)}</div>
+          </div>
+          <div style="text-align:right;">
+            ${AppUI.statusBadge(a.status, AppUI.labelize(a.status))}
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Round: ${AppUI.escapeHtml(String(a.current_round))}</div>
+          </div>
+        </div>
+      `).join("") + `</div>`;
+    }
+    
+    container.innerHTML = html;
+  }
+
+  function closeAdminModal() {
+    const modal = document.getElementById("adminListModal");
+    if (modal) {
+      modal.style.opacity = "0";
+      modal.style.pointerEvents = "none";
+      document.getElementById("adminModalBody").style.transform = "scale(0.95)";
+    }
+  }
+
+  window.approveCompany = approveCompany;
+  window.approveDrive = approveDrive;
+  window.resolveSupport = resolveSupport;
+  window.showAdminDetailsModal = showAdminDetailsModal;
+  window.closeAdminModal = closeAdminModal;
+  loadAdminDashboard();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}

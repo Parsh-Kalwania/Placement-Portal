@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card-shell" data-animate="fade-up">
+    <div class="kicker">Company Profile</div>
+    <h1 class="headline">Complete organization details</h1>
+    <p class="subtext">Fill this once to present a strong company identity when students review your drives.</p>
+</section>
+
+<section class="card-shell" style="margin-top: 14px;">
+    <form id="profileForm" class="form-shell">
+        <label class="field-group">
+            <span class="field-label">Company Name</span>
+            <input type="text" id="company_name" placeholder="Acme Technologies" required>
+        </label>
+        <label class="field-group">
+            <span class="field-label">HR Contact</span>
+            <input type="text" id="hr_contact" placeholder="Recruitment lead or contact number" required>
+        </label>
+        <label class="field-group">
+            <span class="field-label">Website</span>
+            <input type="url" id="website" placeholder="https://company.com">
+        </label>
+        <label class="field-group">
+            <span class="field-label">Description</span>
+            <textarea id="description" placeholder="Brief company profile, hiring focus, and culture..."></textarea>
+        </label>
+        <div class="actions-row">
+            <button type="submit" class="btn btn-secondary">Save Profile</button>
+            <a href="/company/dashboard/" class="btn btn-ghost">Back</a>
+        </div>
+    </form>
+    <div id="message" class="feedback hidden"></div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const form = document.getElementById("profileForm");
+const message = document.getElementById("message");
+
+async function preloadProfile() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    const result = await AppUI.request("/api/company/profile/");
+    if (result.response.ok && result.data) {
+        document.getElementById("company_name").value = result.data.company_name || "";
+        document.getElementById("hr_contact").value = result.data.hr_contact || "";
+        document.getElementById("website").value = result.data.website || "";
+        document.getElementById("description").value = result.data.description || "";
+    }
+}
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    const submitButton = form.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving...";
+    message.className = "feedback hidden";
+
+    const payload = {
+        company_name: document.getElementById("company_name").value.trim(),
+        hr_contact: document.getElementById("hr_contact").value.trim(),
+        website: document.getElementById("website").value.trim(),
+        description: document.getElementById("description").value.trim()
+    };
+
+    try {
+        const result = await AppUI.request("/api/company/profile/", {
+            method: "PATCH",
+            body: JSON.stringify(payload)
+        });
+
+        if (result.response.ok) {
+            message.className = "feedback success";
+            message.textContent = "Profile updated successfully.";
+            AppUI.showToast("Profile saved", "success");
+            window.setTimeout(function() {
+                window.location.href = "/company/dashboard/";
+            }, 700);
+            return;
+        }
+
+        message.className = "feedback error";
+        message.textContent = AppUI.errorText(result.data);
+    } catch (error) {
+        message.className = "feedback error";
+        message.textContent = "Unable to save profile right now.";
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Save Profile";
+    }
+});
+
+preloadProfile();
+</script>
+{% endblock %}

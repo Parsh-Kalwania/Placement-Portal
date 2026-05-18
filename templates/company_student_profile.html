@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="split-header" data-animate="fade-up">
+    <div>
+        <div class="kicker">Candidate Profile</div>
+        <h1 class="headline">Student Details</h1>
+        <p class="subtext">Review contact and academic information before moving candidates in your process.</p>
+    </div>
+    <div class="actions-row">
+        <a href="javascript:history.back()" class="btn btn-ghost">Go Back</a>
+    </div>
+</section>
+
+<section id="studentProfile" class="card-shell" style="margin-top: 14px;"></section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const studentId = window.location.pathname.split("/")[3];
+
+function renderProfile(data) {
+    const username = data.user && data.user.username ? data.user.username : "Student";
+    const email = data.user && data.user.email ? data.user.email : "N/A";
+    const resumeLink = data.resume
+        ? `<a href="${AppUI.escapeHtml(data.resume)}" target="_blank" rel="noopener">Open Resume</a>`
+        : "Not uploaded";
+    const linkedinLink = data.linkedin_url
+        ? `<a href="${AppUI.escapeHtml(data.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a>`
+        : "Not added";
+    const githubLink = data.github_url
+        ? `<a href="${AppUI.escapeHtml(data.github_url)}" target="_blank" rel="noopener">GitHub</a>`
+        : "Not added";
+
+    document.getElementById("studentProfile").innerHTML = `
+        <div class="card-top">
+            <div>
+                <div class="card-title">${AppUI.escapeHtml(username)}</div>
+                <div class="card-meta">${AppUI.escapeHtml(email)}</div>
+            </div>
+            ${AppUI.statusBadge("approved", "Profile")}
+        </div>
+        <div class="info-list">
+            <div class="info-row"><span class="info-key">Phone</span><span class="info-value">${AppUI.escapeHtml(data.phone || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Branch</span><span class="info-value">${AppUI.escapeHtml(data.branch || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Department</span><span class="info-value">${AppUI.escapeHtml(data.department || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Batch Year</span><span class="info-value">${AppUI.escapeHtml(data.batch_year || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Graduation Year</span><span class="info-value">${AppUI.escapeHtml(data.graduation_year || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">CGPA</span><span class="info-value">${AppUI.escapeHtml(data.cgpa || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Skills</span><span class="info-value">${AppUI.escapeHtml(data.skills || "N/A")}</span></div>
+            <div class="info-row"><span class="info-key">Resume</span><span class="info-value">${resumeLink}</span></div>
+            <div class="info-row"><span class="info-key">LinkedIn</span><span class="info-value">${linkedinLink}</span></div>
+            <div class="info-row"><span class="info-key">GitHub</span><span class="info-value">${githubLink}</span></div>
+        </div>
+    `;
+}
+
+async function loadProfile() {
+    if (!AppUI.requireAuth()) {
+        return;
+    }
+
+    AppUI.setRole("company");
+    const result = await AppUI.request(`/api/company/student/${studentId}/`);
+    if (!result.response.ok || !result.data) {
+        AppUI.showToast(AppUI.errorText(result.data), "error");
+        document.getElementById("studentProfile").innerHTML = `<article class="empty-state">Unable to load student profile.</article>`;
+        return;
+    }
+
+    renderProfile(result.data);
+}
+
+loadProfile();
+</script>
+{% endblock %}

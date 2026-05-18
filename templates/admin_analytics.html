@@ -1,0 +1,185 @@
+{% extends 'base.html' %}{% block content %}
+<section class="split-header" data-animate="fade-up">
+  <div>
+    <div class="kicker">Admin Analytics</div>
+    <h1 class="headline">Platform Intelligence</h1>
+    <p class="subtext">Deep visibility into placement rates, branch data, company hires, salary trends, and student engagement.</p>
+  </div>
+  <div class="actions-row">
+    <a href="/admin-panel/dashboard/" class="btn btn-ghost">← Dashboard</a>
+  </div>
+</section>
+
+<!-- SUMMARY STATS -->
+<section id="statsRow" class="stats-grid" style="margin-top:14px;"></section>
+
+<!-- PLACEMENT FUNNEL + MONTHLY TREND -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Application Funnel</h2><div class="card-meta">Platform-wide application status breakdown.</div></div></div>
+    <div style="height:220px;position:relative;margin-top:12px;">
+      <canvas id="funnelChart"></canvas>
+    </div>
+  </article>
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Monthly Applications</h2><div class="card-meta">Application volume trend over last 6 months.</div></div></div>
+    <div style="height:220px;position:relative;margin-top:12px;">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </article>
+</section>
+
+<!-- BRANCH PLACEMENTS + JOB TYPES -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Branch-wise Placements</h2><div class="card-meta">Placed vs total students by branch.</div></div></div>
+    <div style="height:250px;position:relative;margin-top:12px;">
+      <canvas id="branchChart"></canvas>
+    </div>
+  </article>
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Job Type Distribution</h2><div class="card-meta">Breakdown of drive types posted.</div></div></div>
+    <div style="height:250px;position:relative;margin-top:12px;">
+      <canvas id="jobTypeChart"></canvas>
+    </div>
+  </article>
+</section>
+
+<!-- TOP COMPANIES + SKILLS -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Top Hiring Companies</h2><div class="card-meta">Companies with the most placements.</div></div></div>
+    <div style="height:250px;position:relative;margin-top:12px;">
+      <canvas id="companyChart"></canvas>
+    </div>
+  </article>
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Most Demanded Skills</h2><div class="card-meta">Skills most frequently required across approved drives.</div></div></div>
+    <div style="height:250px;position:relative;margin-top:12px;">
+      <canvas id="skillsChart"></canvas>
+    </div>
+  </article>
+</section>
+{% endblock %}{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const CHART_COLORS = [
+  "rgba(14,165,233,0.75)", "rgba(99,102,241,0.75)", "rgba(16,185,129,0.75)",
+  "rgba(245,158,11,0.75)", "rgba(244,63,94,0.75)", "rgba(139,92,246,0.75)",
+  "rgba(20,184,166,0.75)", "rgba(249,115,22,0.75)"
+];
+
+async function loadAnalytics() {
+  if (!AppUI.requireAuth()) return;
+
+  const res = await AppUI.request("/api/admin/analytics/");
+  if (!res.response.ok) { window.location.href = "/login/"; return; }
+  const d = res.data;
+
+  // Stats cards
+  const cards = [
+    { label:"Total Students", value: d.total_students },
+    { label:"Placed Students", value: d.placed_students },
+    { label:"Placement Rate", value: d.placement_rate + "%" },
+    { label:"Total Companies", value: d.total_companies },
+    { label:"Approved Companies", value: d.approved_companies },
+    { label:"Total Drives", value: d.total_drives },
+    { label:"Active Drives", value: d.approved_drives },
+    { label:"Total Applications", value: d.total_applications },
+    { label:"Avg Placed CGPA", value: d.avg_placed_cgpa !== null ? d.avg_placed_cgpa : "N/A" },
+    { label:"Avg Salary (LPA)", value: d.avg_salary_lpa !== null ? "₹" + d.avg_salary_lpa + " L" : "N/A" },
+  ];
+  document.getElementById("statsRow").innerHTML = cards.map((c, idx) => {
+    const accents = ["accent-blue", "accent-orange", "accent-purple", "accent-green"];
+    const accent = accents[idx % accents.length];
+    return `
+      <div class="stat-tile ${accent}">
+        <div class="stat-header">
+          <div class="stat-label" style="font-weight:700;">• ${AppUI.escapeHtml(c.label)}</div>
+        </div>
+        <div class="stat-value" style="font-size:1.8rem; margin-top:8px;">${AppUI.escapeHtml(String(c.value))}</div>
+      </div>
+    `;
+  }).join("");
+
+  // Application funnel
+  const funnel = d.application_funnel || [];
+  new Chart(document.getElementById("funnelChart"), {
+    type: "bar",
+    data: {
+      labels: funnel.map(f => f.stage),
+      datasets: [{ data: funnel.map(f => f.count), backgroundColor: CHART_COLORS, borderRadius: 8 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // Monthly trend
+  const monthly = d.monthly_applications || [];
+  new Chart(document.getElementById("monthlyChart"), {
+    type: "line",
+    data: {
+      labels: monthly.map(m => m.label),
+      datasets: [{
+        label: "Applications",
+        data: monthly.map(m => m.count),
+        borderColor: "rgba(14,165,233,1)",
+        backgroundColor: "rgba(14,165,233,0.1)",
+        fill: true,
+        tension: 0.4,
+        pointRadius: 5
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // Branch placements
+  const branches = d.branch_placements || [];
+  new Chart(document.getElementById("branchChart"), {
+    type: "bar",
+    data: {
+      labels: branches.map(b => b.branch),
+      datasets: [
+        { label: "Placed", data: branches.map(b => b.placed), backgroundColor: "rgba(16,185,129,0.7)", borderRadius: 4 },
+        { label: "Total", data: branches.map(b => b.total), backgroundColor: "rgba(14,165,233,0.3)", borderRadius: 4 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: "top" } } }
+  });
+
+  // Job type pie
+  const jtData = d.job_type_breakdown || [];
+  new Chart(document.getElementById("jobTypeChart"), {
+    type: "doughnut",
+    data: {
+      labels: jtData.map(j => j.type),
+      datasets: [{ data: jtData.map(j => j.count), backgroundColor: CHART_COLORS, hoverOffset: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+  });
+
+  // Top companies
+  const companies = d.top_hiring_companies || [];
+  new Chart(document.getElementById("companyChart"), {
+    type: "bar",
+    data: {
+      labels: companies.map(c => c.company),
+      datasets: [{ axis: "y", data: companies.map(c => c.hires), backgroundColor: CHART_COLORS, borderRadius: 6 }]
+    },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // Skills
+  const skills = d.top_skills_demanded || [];
+  new Chart(document.getElementById("skillsChart"), {
+    type: "bar",
+    data: {
+      labels: skills.map(s => s.skill),
+      datasets: [{ axis: "y", data: skills.map(s => s.count), backgroundColor: "rgba(99,102,241,0.7)", borderRadius: 6 }]
+    },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+loadAnalytics();
+</script>
+{% endblock %}

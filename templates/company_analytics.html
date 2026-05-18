@@ -1,0 +1,112 @@
+{% extends 'base.html' %}{% block content %}
+<section class="split-header" data-animate="fade-up">
+  <div>
+    <div class="kicker">Company Analytics</div>
+    <h1 class="headline">Hiring Insights</h1>
+    <p class="subtext">Track your hiring funnel, applicant quality, and skill demand across all drives.</p>
+  </div>
+  <div class="actions-row">
+    <a href="/company/dashboard/" class="btn btn-ghost">← Dashboard</a>
+  </div>
+</section>
+
+<!-- STATS -->
+<section id="statsRow" class="stats-grid" style="margin-top:14px;"></section>
+
+<!-- FUNNEL + SKILLS -->
+<section class="grid grid-2" style="margin-top:16px;">
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Hiring Funnel</h2><div class="card-meta">Applicant progression through stages.</div></div></div>
+    <div style="height:220px;position:relative;margin-top:12px;">
+      <canvas id="funnelChart"></canvas>
+    </div>
+  </article>
+
+  <article class="card-shell">
+    <div class="card-top"><div><h2>Top Skills Demanded</h2><div class="card-meta">Most required skills across your drives.</div></div></div>
+    <div style="height:220px;position:relative;margin-top:12px;">
+      <canvas id="skillsChart"></canvas>
+    </div>
+  </article>
+</section>
+
+<!-- DRIVE PERFORMANCE -->
+<article class="card-shell" style="margin-top:16px;">
+  <div class="card-top"><div><h2>Drive Performance</h2><div class="card-meta">Top 5 drives by applicant count.</div></div></div>
+  <div id="drivePerformance" class="info-list" style="margin-top:14px;"></div>
+</article>
+{% endblock %}{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+async function loadAnalytics() {
+  if (!AppUI.requireAuth()) return;
+  AppUI.setRole("company");
+
+  const res = await AppUI.request("/api/company/analytics/");
+  if (!res.response.ok) { window.location.href = "/login/"; return; }
+  const d = res.data;
+
+  // Stats
+  const stats = [
+    { label: "Total Drives", value: d.total_drives, icon: "•" },
+    { label: "Total Applicants", value: d.total_applicants, icon: "•" },
+    { label: "Shortlisted", value: d.shortlisted, icon: "•" },
+    { label: "Selected", value: d.selected, icon: "•" },
+    { label: "Selection Ratio", value: d.selection_ratio + "%", icon: "•" },
+    { label: "Response Rate", value: d.response_rate + "%", icon: "•" },
+    { label: "Avg Applicants/Drive", value: d.avg_applicants_per_drive, icon: "•" },
+  ];
+  document.getElementById("statsRow").innerHTML = stats.map(s =>
+    `<div class="stat-tile"><div class="stat-label">${s.icon} ${s.label}</div><div class="stat-value">${AppUI.escapeHtml(String(s.value))}</div></div>`
+  ).join("");
+
+  // Funnel chart
+  const funnel = d.hiring_funnel || [];
+  new Chart(document.getElementById("funnelChart"), {
+    type: "bar",
+    data: {
+      labels: funnel.map(f => f.stage),
+      datasets: [{
+        data: funnel.map(f => f.count),
+        backgroundColor: ["rgba(14,165,233,0.7)", "rgba(245,158,11,0.7)", "rgba(16,185,129,0.7)"],
+        borderRadius: 8
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // Skills chart
+  const skills = d.top_skills_demanded || [];
+  new Chart(document.getElementById("skillsChart"), {
+    type: "horizontalBar" in Chart.defaults ? "horizontalBar" : "bar",
+    data: {
+      labels: skills.map(s => s.skill),
+      datasets: [{
+        axis: "y",
+        data: skills.map(s => s.count),
+        backgroundColor: "rgba(99,102,241,0.65)",
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Drive performance
+  const perf = d.drive_performance || [];
+  document.getElementById("drivePerformance").innerHTML = perf.length
+    ? perf.map(p => `
+      <div class="info-row">
+        <span class="info-key">${AppUI.escapeHtml(p.title)}</span>
+        <span class="info-value">${p.applicants} applied · ${p.selected} selected</span>
+      </div>`).join("")
+    : `<p style="color:var(--text-muted);">No drives yet.</p>`;
+}
+
+loadAnalytics();
+</script>
+{% endblock %}
