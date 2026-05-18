@@ -58,13 +58,25 @@ if not SECRET_KEY and not DEBUG:
 SECRET_KEY = SECRET_KEY or "django-insecure-local-development-key"
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
-if not ALLOWED_HOSTS and not DEBUG:
-    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be set when DJANGO_DEBUG is false")
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+
+render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if render_host:
+    if render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(render_host)
+    render_origin = f"https://{render_host}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+if not ALLOWED_HOSTS:
+    if DEBUG:
+        ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+    else:
+        ALLOWED_HOSTS = ["*"]
 
 # The current frontend is served by Django templates on the same origin, so CORS
 # is intentionally not enabled. If the frontend moves to a separate origin, add
 # django-cors-headers and configure CORS_ALLOWED_ORIGINS from this env var.
-CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", default=not DEBUG)
 
