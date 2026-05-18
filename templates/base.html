@@ -43,7 +43,6 @@
       </aside>
 
       <div class="app-content-wrapper">
-        {% if 'login' not in request.path and 'signup' not in request.path %}
         <header class="site-header">
           <div class="page-frame site-header-inner">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -68,14 +67,8 @@
             </div>
           </div>
         </header>
-        {% endif %}
 
-        <main class="page-frame page-main" 
-              {% if 'login' in request.path or 'signup' in request.path %}
-              style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 0;"
-              {% endif %}>
-          {% block content %}{% endblock %}
-        </main>
+        <main class="page-frame page-main">{% block content %}{% endblock %}</main>
       </div>
     </div>
 
