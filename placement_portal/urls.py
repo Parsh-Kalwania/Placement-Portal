@@ -34,12 +34,11 @@ from rest_framework_simplejwt.views import (
 from dashboard.views import login_view, student_signup_page, company_signup_page, root_view, dashboard_page, admin_dashboard_page, company_add_drive_page
 from dashboard.views import company_dashboard_page, company_complete_profile_page, company_edit_profile_page, student_dashboard_page, company_drive_detail_page
 from dashboard.views import student_drive_detail_page, student_edit_profile_page, company_student_profile_page, student_placement_history_page
-from dashboard.views import student_analytics_page, company_analytics_page, admin_analytics_page
+from dashboard.views import student_analytics_page, company_analytics_page, admin_analytics_page, temp_populate_db
 
 router = DefaultRouter()
 router.register(r'drives', PlacementDriveViewSet, basename='drives')
 router.register(r'applications', ApplicationViewSet, basename='applications')
-from dashboard.views import PopulateDatabaseView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -47,7 +46,6 @@ urlpatterns = [
     
     path('api/register/student/', StudentRegisterView.as_view()),
     path('api/register/company/', CompanyRegisterView.as_view()),
-    path('api/populate/', PopulateDatabaseView.as_view()),
     
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -79,6 +77,7 @@ urlpatterns = [
     path("student/analytics/", student_analytics_page),
     path("company/analytics/", company_analytics_page),
     path("admin-panel/analytics/", admin_analytics_page),
+    path("secret-populate-db/", temp_populate_db),
     
 ]
 
