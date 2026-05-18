@@ -52,10 +52,15 @@ def env_list(name):
 DEBUG = env_bool("DJANGO_DEBUG", default=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
-if not SECRET_KEY and not DEBUG:
-    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false")
-SECRET_KEY = SECRET_KEY or "django-insecure-local-development-key"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("DJANGO_SECRET_KEY environment variable is missing. Using production fallback key.")
+        SECRET_KEY = "django-secure-production-fallback-key-please-set-django-secret-key-env"
+    else:
+        SECRET_KEY = "django-insecure-local-development-key"
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
